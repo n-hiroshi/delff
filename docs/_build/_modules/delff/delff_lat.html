@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.delff_lat &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.delff_lat</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.delff_lat</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pytest</span><span class="o">,</span><span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span><span class="nn">sys</span><span class="o">,</span><span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">&#39;../&#39;</span><span class="p">))</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">resetwarnings</span><span class="p">()</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="ne">FutureWarning</span><span class="p">)</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">jnp</span><span class="p">,</span> <span class="n">lax</span><span class="p">,</span> <span class="n">vmap</span><span class="p">,</span> <span class="n">jacfwd</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">nn</span> <span class="k">as</span> <span class="n">jnn</span><span class="p">,</span> <span class="n">jit</span>
+
+<span class="c1"># delff - original libraries https://github.com/n-hiroshi/delff.git</span>
+<span class="kn">import</span> <span class="nn">delff.lammpsff</span> <span class="k">as</span> <span class="nn">lff</span>
+<span class="kn">import</span> <span class="nn">delff.gaussianff</span> <span class="k">as</span> <span class="nn">gff</span>
+<span class="kn">import</span> <span class="nn">delff.evalfunc</span> <span class="k">as</span> <span class="nn">ef</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">delff.params_ewald</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span>  <span class="nn">delff</span> <span class="kn">import</span> <span class="n">energy</span><span class="p">,</span><span class="n">opt</span><span class="p">,</span><span class="n">opt_lat</span><span class="p">,</span><span class="n">metaopt</span><span class="p">,</span><span class="n">rtp</span><span class="p">,</span><span class="n">util</span>
+<span class="c1">#from delff.gaussianhandler import GaussianHandler</span>
+
+
+<div class="viewcode-block" id="prepare"><a class="viewcode-back" href="../../delff.html#delff.delff_lat.prepare">[docs]</a><span class="k">def</span> <span class="nf">prepare</span><span class="p">(</span><span class="n">root</span><span class="p">,</span>
+            <span class="n">name</span><span class="p">,</span>
+            <span class="n">idx</span><span class="p">,</span>
+            <span class="n">task_balance</span><span class="p">,</span>
+            <span class="n">taskids</span><span class="p">,</span>
+            <span class="n">monomer_gjf</span><span class="p">,</span>
+            <span class="n">atomtypesets</span><span class="p">,</span>
+            <span class="n">in_settings_file</span><span class="p">,</span>
+            <span class="n">data_file</span><span class="p">,</span>
+            <span class="n">path_ff_load</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="c1">#param_balance = jnp.asarray([1,1,1,0,1,0]),</span>
+            <span class="n">param_balance</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]),</span>
+            <span class="n">lat_gjf</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="n">Ulattice</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">pes_dirs</span> <span class="o">=</span> <span class="p">[],</span>
+            <span class="n">dielectric_constant</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+            <span class="n">ewald</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">alpha_ewald</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">nkmaxs</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+            <span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    The function prepare is used to prepare the input for the force field optimization. </span>
+<span class="sd">    It takes multiple arguments and returns a dictionary containing relevant information.</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        root (str): the directory where the optimization is run</span>
+<span class="sd">        name (str): the name of the optimization</span>
+<span class="sd">        idx (int): an integer index of the optimization</span>
+<span class="sd">        task_balance (numpy.ndarray): an array of integers</span>
+<span class="sd">        specifying the weights of each task</span>
+<span class="sd">        taskids (list): a list of integers representing the ids of tasks to perform</span>
+<span class="sd">        monomer_gjf (str): the path of the Gaussian input file for the monomer</span>
+<span class="sd">        atomtypesets (list): a list of sets containing the names of the atoms </span>
+<span class="sd">        in each type of molecule</span>
+<span class="sd">        in_settings_file (str): the path of the lammps-settings file for the force field</span>
+<span class="sd">        data_file (str): the path of the lammps-data file for the force field</span>
+<span class="sd">        path_ff_load (str): the path of the file to load the force field parameters </span>
+<span class="sd">        from (optional, default=&quot;&quot;)</span>
+<span class="sd">        param_balance (numpy.ndarray): an array of integers representing the weights </span>
+<span class="sd">        of different types of parameters (optional, default=[1,1,1,0,1,1])</span>
+<span class="sd">        lat_gjf (str): the path of the Gaussian input file</span>
+<span class="sd">        for the crystal (optional, default=&quot;&quot;)</span>
+<span class="sd">        Ulattice (float): the lattice energy of the crystal</span>
+<span class="sd">        in Hartree (optional, default=0.0)</span>
+<span class="sd">        pes_dirs (list): a list of directories containing PES data (optional, default=[])</span>
+<span class="sd">        dielectric_constant (float): the dielectric constant of the solvent</span>
+<span class="sd">        (optional, default=3.0)</span>
+<span class="sd">        ewald (bool): whether or not to use Ewald summation</span>
+<span class="sd">        for electrostatics (optional, default=True)</span>
+<span class="sd">        alpha_ewald (float): the alpha parameter for Ewald summation (optional, default=0.5)</span>
+<span class="sd">        nkmaxs (numpy.ndarray): an array of integers representing the number of k vectors</span>
+<span class="sd">        to use in Ewald summation (optional, default=[3,3,3])</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        work (dict): a dictionary containing the information needed for the optimization,</span>
+<span class="sd">        including the following keys:</span>
+<span class="sd">        root (str): the directory where the optimization is run</span>
+<span class="sd">        name (str): the name of the optimization</span>
+<span class="sd">        idx (int): an integer index of the optimization</span>
+<span class="sd">        param_balance (numpy.ndarray): an array of integers </span>
+<span class="sd">        representing the weights of different types of parameters</span>
+<span class="sd">        reg (numpy.ndarray): an array of regularization </span>
+<span class="sd">        factors for different types of parameters</span>
+<span class="sd">        task_balance (numpy.ndarray): an array of integers</span>
+<span class="sd">        specifying the weights of each task</span>
+<span class="sd">        all_task_list (list): a list of dictionaries,</span>
+<span class="sd">            each containing the following keys:</span>
+<span class="sd">                sys (parmed.Structure): the structure for the task</span>
+<span class="sd">                atomtypelabels (list): a list of strings</span>
+<span class="sd">                representing the atom types in the task</span>
+<span class="sd">                scale_structure (float): a scaling factor for the structure energy</span>
+<span class="sd">                scale_force (float): a scaling factor for the force</span>
+<span class="sd">                scale_energy (float): a scaling factor for the energy</span>
+<span class="sd">                type (str): a string representing the type of task </span>
+<span class="sd">                (&#39;opt&#39;,&#39;opt_lat&#39;, and &#39;pes&#39;)</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n\n</span><span class="s1">############### PREPERATION ###############&#39;</span><span class="p">)</span>
+
+
+    <span class="n">work</span><span class="o">=</span><span class="p">{}</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;root&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">root</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">name</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;idx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">idx</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;param_balance&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">param_balance</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="mi">100</span><span class="p">,</span><span class="mf">0.1</span><span class="p">,</span><span class="mi">100</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span>  <span class="c1"># bond,angle,dihed</span>
+                       <span class="mi">1</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">20</span><span class="p">,</span><span class="mf">0.1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mf">0.1</span><span class="p">])</span> <span class="c1"># improper,vdw,charge</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;reg&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">reg</span> <span class="c1"># bond,angle,dihed</span>
+    <span class="n">coeff_E</span> <span class="o">=</span> <span class="n">kcalM2Ha</span><span class="o">**</span><span class="mi">2</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;task_balance&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">task_balance</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;root&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">root</span>
+    <span class="n">all_task_list</span><span class="o">=</span><span class="p">[]</span>
+
+
+    <span class="c1">### (1) monomer</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">### Monomer Structure Matching&#39;</span><span class="p">)</span>
+    <span class="n">task</span><span class="o">=</span><span class="p">{}</span>
+    <span class="n">natom</span> <span class="o">=</span> <span class="nb">len</span><span class="p">([</span><span class="n">v</span> <span class="k">for</span> <span class="n">eachset</span> <span class="ow">in</span> <span class="n">atomtypesets</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">eachset</span> <span class="p">])</span>
+
+    <span class="c1">#sys_tgt_monomer = gff.get_sys_from_gjf(monomer_gjf)   ### 230307 refactoring</span>
+    <span class="c1">#natom = sys_tgt_monomer.coord.shape[1] # nmol x natom x 3dim### 230307 refactoring</span>
+    <span class="n">ff_ini</span><span class="p">,</span><span class="n">sys_ini</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">atomtypelabels</span> <span class="o">=</span> <span class="n">lff</span><span class="o">.</span><span class="n">read_system</span><span class="p">(</span><span class="n">in_settings_file</span><span class="p">,</span><span class="n">data_file</span><span class="p">,</span>\
+            <span class="n">atomtypesets</span><span class="o">=</span><span class="n">atomtypesets</span><span class="p">)</span> <span class="c1">### 230307 refactoring</span>
+    <span class="n">sys_tgt_monomer</span> <span class="o">=</span> <span class="n">sys_ini</span>  <span class="c1">### 230307 refactoring</span>
+
+
+    <span class="n">ff_ini</span> <span class="o">=</span> <span class="n">update</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">dielectric_constant</span><span class="o">=</span><span class="n">dielectric_constant</span><span class="p">)</span>
+
+    <span class="c1">## charge damping</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">path_ff_load</span><span class="p">)</span> <span class="o">==</span><span class="mi">0</span><span class="p">:</span>
+        <span class="n">ff_ini</span> <span class="o">=</span> <span class="n">update</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">charges</span><span class="o">=</span><span class="n">ff_ini</span><span class="o">.</span><span class="n">charges</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">path_ff_load</span><span class="p">)</span> <span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span> 
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> loaded to ff_ini&#39;</span><span class="o">%</span><span class="n">path_ff_load</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_ff_load</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span> <span class="n">ff_ini</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+
+    <span class="n">util</span><span class="o">.</span><span class="n">printff</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">)</span>
+    <span class="c1">#print(&#39;\n# ff_ini\n&#39;,ff_ini)</span>
+    <span class="c1">#print(&#39;\n# ffa_\n&#39;,ffa_)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># atomtypelabels&#39;</span><span class="p">,</span><span class="n">atomtypelabels</span><span class="p">)</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;atomtypelabels&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">atomtypelabels</span>
+
+    <span class="c1"># sys</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">sys_tgt_monomer</span>
+
+    <span class="c1"># ffa</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ffa_</span>
+
+    <span class="c1"># scale</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_structure&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">natom</span><span class="c1">#0.01#/np.float64(Lval)</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_force&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">coeff_E</span><span class="o">/</span><span class="n">natom</span><span class="o">/</span><span class="mf">20.0</span><span class="o">**</span><span class="mi">2</span>
+
+    <span class="c1"># type</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;opt&#39;</span>
+    <span class="n">all_task_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+
+    <span class="c1">### (2) crtystal</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">### Crystal Structure Matching&#39;</span><span class="p">)</span>
+    <span class="n">task</span><span class="o">=</span><span class="p">{}</span>
+ 
+    <span class="c1"># sys</span>
+    <span class="n">sys_tgt_lat</span> <span class="o">=</span> <span class="n">gff</span><span class="o">.</span><span class="n">get_sys_from_gjf</span><span class="p">(</span><span class="n">lat_gjf</span><span class="p">)</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">sys_tgt_lat</span>                    
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># target crystal lattice</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span><span class="n">sys_tgt_lat</span><span class="o">.</span><span class="n">lattice</span><span class="p">)</span>
+    <span class="c1">#print(&#39;\n# target crystal coord&#39;,sys_tgt_lat.coord)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># target crystal coord shape</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span><span class="n">sys_tgt_lat</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                                            
+    <span class="c1">## coeff_formation_energy               </span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;Ulattice&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Ulattice</span> <span class="c1">#[Ha]</span>
+                                        
+    <span class="c1"># ffa                               </span>
+    <span class="n">nmol</span><span class="p">,</span><span class="n">natom_lat</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">sys_tgt_lat</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">assert</span> <span class="n">natom</span> <span class="o">==</span> <span class="n">natom_lat</span>
+    <span class="n">neighbors</span><span class="p">,</span><span class="n">latidx</span> <span class="o">=</span> <span class="n">search_neighbors</span><span class="p">(</span><span class="n">sys_tgt_lat</span><span class="p">,</span><span class="n">ccutoff</span><span class="o">=</span><span class="n">ffa_</span><span class="o">.</span><span class="n">ccutoff</span><span class="p">)</span>
+    <span class="n">ffa_lat</span> <span class="o">=</span> <span class="n">update</span><span class="p">(</span><span class="n">ffa_</span><span class="p">,</span><span class="n">nmolvec</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">nmol</span><span class="p">]),</span><span class="n">natomvec</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">natom</span><span class="p">]),</span>\
+            <span class="n">neighbors</span><span class="o">=</span><span class="n">neighbors</span><span class="p">,</span><span class="n">latidx</span><span class="o">=</span><span class="n">latidx</span><span class="p">)</span>
+    <span class="n">rall</span> <span class="o">=</span> <span class="n">rtp</span><span class="o">.</span><span class="n">alldists_neighbors</span><span class="p">(</span><span class="n">sys_tgt_lat</span><span class="p">,</span><span class="n">ffa_lat</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">jnp</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">rall</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">ccutoff</span> <span class="o">+</span> <span class="mf">2.0</span>
+                                        
+    <span class="c1"># ewald</span>
+    <span class="k">if</span> <span class="n">ewald</span><span class="p">:</span> 
+        <span class="n">ffa_lat</span> <span class="o">=</span> <span class="n">update</span><span class="p">(</span><span class="n">ffa_lat</span><span class="p">,</span><span class="n">alpha_ewald</span><span class="o">=</span><span class="n">alpha_ewald</span><span class="p">,</span><span class="n">nkmaxs</span><span class="o">=</span><span class="n">nkmaxs</span><span class="p">)</span>
+        <span class="n">ffa_lat</span> <span class="o">=</span> <span class="n">define_ewald_params</span><span class="p">(</span><span class="n">sys_tgt_lat</span><span class="p">,</span><span class="n">ffa_lat</span><span class="p">)</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ffa_lat</span>          
+
+    <span class="c1"># scale                             </span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_structure&#39;</span><span class="p">]</span><span class="o">=</span><span class="mf">1.0</span><span class="o">/</span><span class="n">natom</span><span class="o">/</span><span class="n">nmol</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_force&#39;</span><span class="p">]</span><span class="o">=</span><span class="n">coeff_E</span><span class="o">/</span><span class="n">natom</span><span class="o">/</span><span class="n">nmol</span><span class="o">/</span><span class="mf">20.0</span><span class="o">**</span><span class="mi">2</span>      
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_energy&#39;</span><span class="p">]</span><span class="o">=</span><span class="mf">0.25</span><span class="o">*</span><span class="n">coeff_E</span><span class="o">/</span><span class="n">natom</span>
+
+ 
+    <span class="c1"># type</span>
+    <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;opt_lat&#39;</span>
+    <span class="n">all_task_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">all_task_list</span><span class="p">))</span>
+
+
+    <span class="c1">### (3) pes0</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">### PES Matching&#39;</span><span class="p">)</span>
+    <span class="n">pes_list</span> <span class="o">=</span> <span class="n">gff</span><span class="o">.</span><span class="n">get_ref_sys_and_energies</span><span class="p">(</span><span class="n">pes_dirs</span><span class="p">,</span><span class="n">natom</span><span class="p">)</span>
+
+    <span class="c1">#print(len(pes_list))</span>
+    <span class="k">for</span> <span class="n">ipes</span><span class="p">,</span> <span class="n">pes</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pes_list</span><span class="p">):</span>
+        <span class="n">task</span><span class="o">=</span><span class="p">{}</span>
+        <span class="n">sys_pes</span> <span class="o">=</span> <span class="n">pes_list</span><span class="p">[</span><span class="n">ipes</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">energies</span>  <span class="o">=</span> <span class="n">pes_list</span><span class="p">[</span><span class="n">ipes</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">Lval</span><span class="o">=</span> <span class="n">ef</span><span class="o">.</span><span class="n">L_pes</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">sys_pes</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">energies</span><span class="p">)</span>
+        <span class="n">task</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ffa_</span>
+        <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys_pes&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sys_pes</span>
+        <span class="n">task</span><span class="p">[</span><span class="s1">&#39;energies&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">energies</span>
+        <span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_energy&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.25</span><span class="o">*</span><span class="n">coeff_E</span><span class="o">/</span><span class="n">natom</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span>
+        <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;pes&#39;</span>
+        <span class="n">all_task_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+
+
+    <span class="c1">## (4) set task_list to work dict</span>
+    <span class="n">task_list</span><span class="o">=</span><span class="p">[]</span>
+    <span class="n">taskids_inv</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">taskid</span> <span class="ow">in</span> <span class="n">taskids</span><span class="p">:</span>
+        <span class="n">task_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">all_task_list</span><span class="p">[</span><span class="n">taskid</span><span class="p">])</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;task_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">task_list</span>
+    <span class="n">work</span><span class="p">[</span><span class="s1">&#39;taskids&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">taskids</span>
+
+    <span class="k">return</span> <span class="n">ff_ini</span><span class="p">,</span> <span class="n">work</span></div>
+
+
+<div class="viewcode-block" id="run"><a class="viewcode-back" href="../../delff.html#delff.delff_lat.run">[docs]</a><span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="n">algo</span><span class="p">,</span><span class="n">maxiter</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span><span class="n">pes_dirs</span><span class="o">=</span><span class="p">[]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function is the main function for optimizing force fields. </span>
+<span class="sd">    It takes an initial force field, a work dictionary, an optimization algorithm,</span>
+<span class="sd">    and other optional arguments such as maximum iterations</span>
+<span class="sd">    and potential energy surface directories, and returns the optimized force field.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        ff_ini: an initial force field</span>
+<span class="sd">        work: a dictionary containing information about the system </span>
+<span class="sd">        and the optimization parameters</span>
+<span class="sd">        algo: a string indicating the optimization algorithm to use (SDM, FDM, or BO)</span>
+<span class="sd">        maxiter: an integer indicating the maximum number</span>
+<span class="sd">        of iterations for the optimization algorithm (default is 100)</span>
+<span class="sd">        pes_dirs: a list of potential energy surface directories </span>
+<span class="sd">        for plotting (default is an empty list)</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">       ff_opt: the optimized force field</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">root</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;root&#39;</span><span class="p">]</span>
+    <span class="n">idx</span>  <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;idx&#39;</span><span class="p">]</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;reg&#39;</span><span class="p">]</span>
+
+    <span class="c1">## (1) calc init L_sum with algo=SD mode (even FD optimization mode)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n\n</span><span class="s1">############### INITIAL STATE ###############&#39;</span><span class="p">)</span>
+    <span class="n">ff_ini_reg</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">doreg</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">reg</span><span class="p">)</span>
+    <span class="n">Lval_sum</span> <span class="o">=</span> <span class="n">ef</span><span class="o">.</span><span class="n">L_sum</span><span class="p">(</span><span class="n">ff_ini_reg</span><span class="p">,</span>  <span class="n">work</span><span class="p">,</span> <span class="n">algo</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# INITIAL L_sum(</span><span class="si">%s</span><span class="s1">): </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">algo</span><span class="p">,</span><span class="n">Lval_sum</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;FDM&#39;</span><span class="p">:</span>
+       <span class="n">Lval_sum</span> <span class="o">=</span> <span class="n">ef</span><span class="o">.</span><span class="n">L_sum</span><span class="p">(</span><span class="n">ff_ini_reg</span><span class="p">,</span>  <span class="n">work</span><span class="p">,</span> <span class="s1">&#39;SDM&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+       <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# INITIAL L_sum(SDM): </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">Lval_sum</span><span class="p">)</span>
+
+
+    <span class="c1">## (2) output initial state with algo=SD mode (even FD optimization mode)</span>
+    <span class="n">save_to_gjf_lmp</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="s1">&#39;ini&#39;</span><span class="p">)</span>
+    
+    <span class="c1">## (3) METAOPT with algo=SD/FD/BO mode optimization</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n\n</span><span class="s1">############### OPTMIZATION ###############&#39;</span><span class="p">)</span>
+    <span class="n">ff_opt</span> <span class="o">=</span> <span class="n">metaopt</span><span class="o">.</span><span class="n">metaopt</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span><span class="n">maxiter</span><span class="o">=</span><span class="n">maxiter</span><span class="p">,</span><span class="n">algo</span><span class="o">=</span><span class="n">algo</span><span class="p">)</span>
+    <span class="c1">#ff_opt = ff_ini</span>
+    <span class="n">path_ff_save</span> <span class="o">=</span> <span class="n">root</span> <span class="o">+</span> <span class="s2">&quot;ff_opt</span><span class="si">%02d</span><span class="s2">.pickle&quot;</span><span class="o">%</span><span class="n">idx</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_ff_save</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="c1">## (4) calc final L_sum with algo=SD mode (even FD optimization mode)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n\n</span><span class="s1">############### FINAL STATE ###############&#39;</span><span class="p">)</span>
+    <span class="n">ff_opt_reg</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">doreg</span><span class="p">(</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">reg</span><span class="p">)</span>
+    <span class="n">Lval_sum</span> <span class="o">=</span> <span class="n">ef</span><span class="o">.</span><span class="n">L_sum</span><span class="p">(</span><span class="n">ff_opt_reg</span><span class="p">,</span> <span class="n">work</span><span class="p">,</span> <span class="n">algo</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">algo</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;BO&#39;</span><span class="p">,</span><span class="s1">&#39;SDM&#39;</span><span class="p">]:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# grep1: FINAL L_sum: </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">Lval_sum</span><span class="p">)</span>
+        <span class="n">util</span><span class="o">.</span><span class="n">printff</span><span class="p">(</span><span class="n">ff_opt</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;FDM&#39;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# FINAL L_sum(FD): </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">Lval_sum</span><span class="p">)</span>
+        <span class="n">Lval_sum</span> <span class="o">=</span> <span class="n">ef</span><span class="o">.</span><span class="n">L_sum</span><span class="p">(</span><span class="n">ff_opt_reg</span><span class="p">,</span>  <span class="n">work</span><span class="p">,</span> <span class="s1">&#39;SDM&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# grep1: FINAL L_sum(SD): </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">Lval_sum</span><span class="p">)</span>
+        <span class="n">util</span><span class="o">.</span><span class="n">printff</span><span class="p">(</span><span class="n">ff_opt</span><span class="p">)</span>
+
+    <span class="c1">## (5) output final state with algo=SD mode (even FD optimization mode)</span>
+    <span class="n">save_to_gjf_lmp</span><span class="p">(</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="s1">&#39;opt&#39;</span><span class="p">)</span>
+
+    <span class="c1">## (6) draw pes</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pes_dirs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">ffa_</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;task_list&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span>
+        <span class="n">draw_pes</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="n">pes_dirs</span><span class="p">)</span>
+
+    <span class="c1">## (7) final output</span>
+    <span class="k">return</span> <span class="n">ff_opt</span></div>
+
+<div class="viewcode-block" id="noopt"><a class="viewcode-back" href="../../delff.html#delff.delff_lat.noopt">[docs]</a><span class="k">def</span> <span class="nf">noopt</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="n">algo</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    The function noopt() evaluates the force field after optimization by </span>
+<span class="sd">    calculating the L_sum.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ff_ini: a dictionary containing the initial force field parameters.</span>
+<span class="sd">        work: a dictionary containing information about the optimization work.</span>
+<span class="sd">        algo: a string specifying the optimization algorithm to be used.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The function does not explicitly return any value, </span>
+<span class="sd">        but it prints the calculated value of the L_sum.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;root&#39;</span><span class="p">]</span>
+    <span class="n">idx</span>  <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;idx&#39;</span><span class="p">]</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;reg&#39;</span><span class="p">]</span>
+
+    <span class="c1">## (1) calc init L_sum with algo=SD mode (even FD optimization mode)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n\n\n</span><span class="s1">##### EVALUATION OF FF #####&#39;</span><span class="p">)</span>
+    <span class="n">ff_ini_reg</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">doreg</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">reg</span><span class="p">)</span>
+    <span class="n">Lval_sum</span> <span class="o">=</span> <span class="n">ef</span><span class="o">.</span><span class="n">L_sum</span><span class="p">(</span><span class="n">ff_ini_reg</span><span class="p">,</span>  <span class="n">work</span><span class="p">,</span> <span class="n">algo</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# L_sum(</span><span class="si">%s</span><span class="s1">): </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">algo</span><span class="p">,</span><span class="n">Lval_sum</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;FDM&#39;</span><span class="p">:</span>
+       <span class="n">Lval_sum</span> <span class="o">=</span> <span class="n">ef</span><span class="o">.</span><span class="n">L_sum</span><span class="p">(</span><span class="n">ff_ini_reg</span><span class="p">,</span>  <span class="n">work</span><span class="p">,</span> <span class="s1">&#39;SDM&#39;</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+       <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# L_sum(SDM): </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">Lval_sum</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="save_to_gjf_lmp"><a class="viewcode-back" href="../../delff.html#delff.delff_lat.save_to_gjf_lmp">[docs]</a><span class="k">def</span> <span class="nf">save_to_gjf_lmp</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="n">label</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39; </span>
+<span class="sd">    The function saves the optimized structures with the force field</span>
+<span class="sd">    in the following formats:</span>
+<span class="sd">    (1) monomer</span>
+<span class="sd">        Gaussian Input File (xxx.gjf)</span>
+<span class="sd">        Lammps Input Files (xxx.data,xxx.in.settings)</span>
+<span class="sd">    (2) crystal</span>
+<span class="sd">        Gaussian Input File (xxx.gjf)</span>
+<span class="sd">        Lammps Input Files (xxx.data,xxx.in.settings)</span>
+<span class="sd">        XYX File for OVITO, VESTA and so on.  (xxx.xyz)</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        ff_: a dictionary containing the force field parameters.</span>
+<span class="sd">        work: a dictionary containing information about the optimization work.</span>
+<span class="sd">        label: a string specifying a label for the output files.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The function does not explicitly return any value, but it saves the FF to the specified file formats.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;root&#39;</span><span class="p">]</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+    <span class="n">idx</span>  <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;idx&#39;</span><span class="p">]</span>
+    <span class="n">task_list</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;task_list&#39;</span><span class="p">]</span>
+    <span class="n">taskids</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;taskids&#39;</span><span class="p">]</span>
+    <span class="n">task_monomer</span> <span class="o">=</span> <span class="n">task_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># monomer</span>
+    <span class="n">sys_tgt_monomer</span> <span class="o">=</span> <span class="n">task_monomer</span><span class="p">[</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span>
+    <span class="n">ffa_</span> <span class="o">=</span> <span class="n">task_monomer</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span>
+    <span class="n">atomtypelabels</span> <span class="o">=</span> <span class="n">task_monomer</span><span class="p">[</span><span class="s1">&#39;atomtypelabels&#39;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">taskid</span><span class="p">,</span><span class="n">task</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">taskids</span><span class="p">,</span><span class="n">task_list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">taskid</span><span class="o">==</span><span class="mi">0</span> <span class="ow">and</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;opt&#39;</span><span class="p">:</span> <span class="c1">#monomer</span>
+            <span class="c1"># output init states for monomer</span>
+            <span class="n">sys_opt</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">opt_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt_monomer</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+            <span class="n">gff</span><span class="o">.</span><span class="n">write_gjf</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_</span><span class="si">%s</span><span class="s1">ff</span><span class="si">%02d</span><span class="s1">.gjf&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">label</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_opt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">atomtypelabels</span><span class="p">)</span>
+            <span class="n">lff</span><span class="o">.</span><span class="n">write_system_in_settings</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_</span><span class="si">%s</span><span class="s1">ff</span><span class="si">%02d</span><span class="s1">.in.settings&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">label</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">ff_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+            <span class="n">lff</span><span class="o">.</span><span class="n">write_system_data</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_</span><span class="si">%s</span><span class="s1">ff</span><span class="si">%02d</span><span class="s1">.data&#39;</span> \
+                    <span class="o">%</span><span class="p">(</span><span class="n">label</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_opt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">atomtypelabels</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">taskid</span><span class="o">&gt;=</span><span class="mi">1</span> <span class="ow">and</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;opt_lat&#39;</span><span class="p">:</span> <span class="c1"># laternal</span>
+            <span class="n">sys_tgt</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span>
+            <span class="n">ffa_lat</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span>
+            <span class="n">sys_opt</span> <span class="o">=</span> <span class="n">opt_lat</span><span class="o">.</span><span class="n">opt_lat_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt</span><span class="p">,</span><span class="n">ffa_lat</span><span class="p">)</span>
+            <span class="n">gff</span><span class="o">.</span><span class="n">write_gjf</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_lat_</span><span class="si">%s</span><span class="s1">ff</span><span class="si">%02d</span><span class="s1">.gjf&#39;</span>\
+                    <span class="o">%</span><span class="p">(</span><span class="n">label</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_opt</span><span class="p">,</span><span class="n">ffa_lat</span><span class="p">,</span><span class="n">atomtypelabels</span><span class="p">)</span>
+            <span class="c1">#gff.write_xyz(root + name + &#39;_lat_%sff%02d.xyz&#39;\</span>
+            <span class="c1">#        %(label,idx),ff_,sys_opt,ffa_lat,atomtypelabels)</span>
+            <span class="n">lff</span><span class="o">.</span><span class="n">write_system_in_settings</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;_lat_</span><span class="si">%s</span><span class="s1">ff</span><span class="si">%02d</span><span class="s1">.in.settings&#39;</span>\
+                    <span class="o">%</span><span class="p">(</span><span class="n">label</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">ff_</span><span class="p">,</span><span class="n">ffa_lat</span><span class="p">)</span>
+            <span class="n">lff</span><span class="o">.</span><span class="n">write_system_data</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span>  <span class="s1">&#39;_lat_</span><span class="si">%s</span><span class="s1">ff</span><span class="si">%02d</span><span class="s1">.data&#39;</span>\
+                    <span class="o">%</span><span class="p">(</span><span class="n">label</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_opt</span><span class="p">,</span><span class="n">ffa_lat</span><span class="p">,</span><span class="n">atomtypelabels</span><span class="p">)</span></div>
+
+<span class="k">def</span> <span class="nf">_draw_pes</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="n">pes_dirs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    The function draw_pes computes and plots the Potential Energy Surface (PES) of a molecule using two different force fields, ff_ini and ff_opt, and saves the results in various formats. It calculates energy components like bond, angle, dihedral, improper, coulomb, and van der Waals energies, and generates plots comparing the energies of the two force fields with Gaussian (g16) energies.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">    </span>
+<span class="sd">    ff_ini (object): Initial force field.</span>
+<span class="sd">    ff_opt (object): Optimized force field.</span>
+<span class="sd">    ffa_ (object): Auxiliary force field object.</span>
+<span class="sd">    work (dict): A dictionary containing the root directory and task-related information.</span>
+<span class="sd">    pes_dirs (list): A list of directories containing the PES data.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">    This function does not return any value but saves the following files to disk:</span>
+<span class="sd">    </span>
+<span class="sd">    PES plots comparing g16, initial and optimized force fields.</span>
+<span class="sd">    PES component plots for the optimized force field.</span>
+<span class="sd">    CSV files containing the computed PES data for initial and optimized force fields.</span>
+<span class="sd">   &#39;&#39;&#39;</span>
+
+
+
+<div class="viewcode-block" id="draw_pes"><a class="viewcode-back" href="../../delff.html#delff.delff_lat.draw_pes">[docs]</a><span class="k">def</span> <span class="nf">draw_pes</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">work</span><span class="p">,</span><span class="n">pes_dirs</span><span class="p">):</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;root&#39;</span><span class="p">]</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;idx&#39;</span><span class="p">]</span>
+    <span class="n">task_list</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;task_list&#39;</span><span class="p">]</span>
+    <span class="n">task_monomer</span> <span class="o">=</span> <span class="n">task_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="c1"># monomer</span>
+    <span class="n">sys_tgt_monomer</span> <span class="o">=</span> <span class="n">task_monomer</span><span class="p">[</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span>
+    <span class="n">natom</span> <span class="o">=</span> <span class="n">sys_tgt_monomer</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="c1"># nmol x natom x 3dim</span>
+    <span class="n">nmolvec</span>  <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">natomvec</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">natom</span><span class="p">])</span>
+
+    <span class="c1">#GH = GaussianHandler()</span>
+
+    <span class="c1"># initial</span>
+    <span class="n">dict_pes_ini</span><span class="o">=</span><span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ipes</span><span class="p">,</span><span class="n">pes_dirs</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pes_dirs</span><span class="p">):</span>
+        
+        <span class="n">ipes_task</span><span class="o">=-</span><span class="mi">1</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="n">task_list</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;pes&#39;</span><span class="p">:</span><span class="n">ipes_task</span><span class="o">+=</span><span class="mi">1</span>
+            <span class="k">if</span> <span class="n">ipes_task</span> <span class="o">==</span> <span class="n">ipes</span><span class="p">:</span> <span class="k">break</span>
+
+        <span class="n">sys_pes</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys_pes&#39;</span><span class="p">]</span>
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;energies&#39;</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# PES </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">pes_dirs</span><span class="p">)</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">pes_dirs</span><span class="p">)</span>
+        <span class="n">files</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+
+        <span class="n">nmod</span><span class="o">=</span><span class="mi">1000</span>
+        <span class="n">ipoint</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;.log&#39;</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">ipoint</span><span class="o">+=</span><span class="mi">1</span>
+        <span class="n">npoint</span> <span class="o">=</span> <span class="n">ipoint</span>
+        <span class="n">pesmat_ini</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">npoint</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">pesmat_opt</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">npoint</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">ipoint</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;.log&#39;</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">ipoint</span><span class="o">+=</span><span class="mi">1</span>
+                <span class="n">g16energy</span><span class="o">=</span><span class="n">energies</span><span class="p">[</span><span class="n">ipoint</span><span class="p">]</span>
+                <span class="n">coord_</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sys_pes</span><span class="o">.</span><span class="n">coord</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,:,:],(</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+                <span class="n">sys_</span> <span class="o">=</span> <span class="n">System</span><span class="p">(</span><span class="n">coord_</span><span class="p">)</span>
+
+                <span class="n">E_bond</span><span class="p">,</span> <span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span> <span class="n">E_improper</span><span class="p">,</span> <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_long</span><span class="p">,</span> <span class="n">E_vdw</span> <span class="o">=</span> \
+                    <span class="n">energy</span><span class="o">.</span><span class="n">energy_each_coord</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+                <span class="n">E_tot</span> <span class="o">=</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_ini</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">ipoint</span><span class="o">/</span><span class="n">nmod</span><span class="p">)</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ipoint</span><span class="o">%</span><span class="n">npoint</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">g16energy</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_tot</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_bond</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_angle</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_dihed</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_improper</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_coul</span><span class="o">+</span><span class="n">E_long</span>
+                <span class="n">pesmat_ini</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">9</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_vdw</span>
+
+
+                <span class="n">E_bond</span><span class="p">,</span> <span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span> <span class="n">E_improper</span><span class="p">,</span> <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_long</span><span class="p">,</span> <span class="n">E_vdw</span> <span class="o">=</span> \
+                    <span class="n">energy</span><span class="o">.</span><span class="n">energy_each_coord</span><span class="p">(</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+                <span class="n">E_tot</span> <span class="o">=</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_opt</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">ipoint</span><span class="o">/</span><span class="n">nmod</span><span class="p">)</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ipoint</span><span class="o">%</span><span class="n">npoint</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">g16energy</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_tot</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_bond</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">5</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_angle</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">6</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_dihed</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_improper</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_coul</span><span class="o">+</span><span class="n">E_long</span>
+                <span class="n">pesmat_opt</span><span class="p">[</span><span class="n">ipoint</span><span class="p">,</span><span class="mi">9</span><span class="p">]</span> <span class="o">=</span> <span class="n">E_vdw</span>
+
+        
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+        <span class="n">imin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">pesmat_ini</span><span class="p">[:,</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_ini</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_ini</span><span class="p">[:,</span><span class="mi">2</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_ini</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">2</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span>\
+                <span class="n">label</span><span class="o">=</span><span class="s1">&#39;g16&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_ini</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_ini</span><span class="p">[:,</span><span class="mi">3</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_ini</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span>\
+                <span class="n">label</span><span class="o">=</span><span class="s1">&#39;ini&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">3</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span>\
+                <span class="n">label</span><span class="o">=</span><span class="s1">&#39;opt&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;energy [kcal/Mol]&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;dihedral index&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="s1">&#39;pes</span><span class="si">%d</span><span class="s1">_g16_ff</span><span class="si">%02d</span><span class="s1">.png&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">ipes</span><span class="p">,</span><span class="n">idx</span><span class="p">))</span>
+
+        <span class="c1"># each compontents of delff</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span>
+        <span class="n">imin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">pesmat_ini</span><span class="p">[:,</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span><span class="mi">20</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">3</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;tot&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">4</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">4</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;bond&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">5</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">5</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;angle&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">6</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">6</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;dihed&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">7</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">7</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;improper&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">8</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">8</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;coulomb&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">pesmat_opt</span><span class="p">[:,</span><span class="mi">9</span><span class="p">]</span><span class="o">-</span><span class="n">pesmat_opt</span><span class="p">[</span><span class="n">imin</span><span class="p">,</span><span class="mi">9</span><span class="p">])</span><span class="o">*</span><span class="n">kcalM2Ha</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;vdw&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;energy [kcal/Mol]&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;dihedral index&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">root</span> <span class="o">+</span> <span class="s1">&#39;pes</span><span class="si">%d</span><span class="s1">_compontents_ff</span><span class="si">%02d</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">ipes</span><span class="p">,</span><span class="n">idx</span><span class="p">))</span>
+        
+        <span class="c1">## save to csv</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">root</span><span class="o">+</span><span class="s1">&#39;pes</span><span class="si">%d</span><span class="s1">_ini</span><span class="si">%02d</span><span class="s1">.csv&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">ipes</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">pesmat_ini</span><span class="p">,</span><span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">,</span>\
+                <span class="n">header</span><span class="o">=</span><span class="s2">&quot;period,point,g16,lmp,bond,angle,dihed,improper,coulomb,vdw&quot;</span><span class="p">)</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">savetxt</span><span class="p">(</span><span class="n">root</span><span class="o">+</span><span class="s1">&#39;pes</span><span class="si">%d</span><span class="s1">_opt</span><span class="si">%02d</span><span class="s1">.csv&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">ipes</span><span class="p">,</span><span class="n">idx</span><span class="p">),</span><span class="n">pesmat_opt</span><span class="p">,</span><span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;,&#39;</span><span class="p">,</span>\
+                <span class="n">header</span><span class="o">=</span><span class="s2">&quot;period,point,g16,lmp,bond,angle,dihed,improper,coulomb,vdw&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="search_neighbors"><a class="viewcode-back" href="../../delff.html#delff.delff_lat.search_neighbors">[docs]</a><span class="k">def</span> <span class="nf">search_neighbors</span><span class="p">(</span><span class="n">sys_lat</span><span class="p">,</span><span class="n">ccutoff</span><span class="o">=</span><span class="mf">10.0</span><span class="p">):</span>
+    <span class="n">ccutoff</span> <span class="o">+=</span> <span class="mf">2.0</span>
+    <span class="n">coord</span>   <span class="o">=</span> <span class="n">sys_lat</span><span class="o">.</span><span class="n">coord</span>
+    <span class="n">lattice</span> <span class="o">=</span> <span class="n">sys_lat</span><span class="o">.</span><span class="n">lattice</span>
+    <span class="n">rall</span><span class="p">,</span><span class="n">latidx</span> <span class="o">=</span> <span class="n">alldists_lat</span><span class="p">(</span><span class="n">sys_lat</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># cutoff for neighbors: </span><span class="si">%f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">ccutoff</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">rall</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="n">nneighbors</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">rall</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span><span class="o">&lt;=</span><span class="n">ccutoff</span><span class="p">)</span>
+
+    <span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="n">ncell</span><span class="p">,</span><span class="n">_</span><span class="p">,</span><span class="n">_</span><span class="o">=</span><span class="n">rall</span><span class="o">.</span><span class="n">shape</span>
+    
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="n">ncell</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span><span class="n">i16</span><span class="p">)</span>
+    <span class="c1">#print(&#39;\n# neighbors.shape&#39;,neighbors.shape)</span>
+
+    <span class="k">def</span> <span class="nf">idx_neighbors</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">,</span><span class="n">imol</span><span class="p">,</span><span class="n">iatom</span><span class="p">,</span><span class="n">latidx_each</span><span class="p">,</span><span class="n">jmol</span><span class="p">,</span><span class="n">jatom</span><span class="p">):</span>
+        <span class="n">flag_outer_cell</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">latidx_each</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">!=</span><span class="mi">0</span><span class="p">,</span><span class="n">latidx_each</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">!=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">flag_outer_cell</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">flag_outer_cell</span><span class="p">,</span><span class="n">latidx_each</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">!=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">flag_UT_incell</span>  <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">imol</span><span class="o">&lt;</span><span class="n">jmol</span><span class="p">,</span><span class="n">jnp</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">imol</span><span class="o">==</span><span class="n">jmol</span><span class="p">,</span><span class="n">iatom</span><span class="o">&lt;</span><span class="n">jatom</span><span class="p">))</span>
+        <span class="n">flag_UT</span>         <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">flag_outer_cell</span><span class="p">,</span><span class="n">flag_UT_incell</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">r</span><span class="o">&lt;=</span><span class="n">ccutoff</span><span class="p">,</span><span class="n">flag_UT</span><span class="p">),</span>\
+                <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">imol</span><span class="p">,</span><span class="n">iatom</span><span class="p">,</span><span class="n">latidx_each</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">latidx_each</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">latidx_each</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">jmol</span><span class="p">,</span><span class="n">jatom</span><span class="p">]),</span>\
+                <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="n">vneighbor1</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">idx_neighbors</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">vneighbor2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vneighbor1</span>   <span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">vneighbor3</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vneighbor2</span>   <span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">vneighbor4</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vneighbor3</span>   <span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="n">vneighbor5</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vneighbor4</span>   <span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">vneighbor5</span><span class="p">(</span><span class="n">rall</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">,</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nmol</span><span class="p">),</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">natom</span><span class="p">),</span><span class="n">latidx</span><span class="p">,</span>\
+            <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nmol</span><span class="p">),</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">natom</span><span class="p">))</span>
+
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">neighbors</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">neighbors</span><span class="p">[</span><span class="n">neighbors</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">&gt;=</span><span class="mi">0</span><span class="p">,:]</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1"># num. of neighbors: </span><span class="si">%d</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">neighbors</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">neighbors</span><span class="p">,</span> <span class="n">latidx</span></div>
+
+
+<div class="viewcode-block" id="alldists_lat"><a class="viewcode-back" href="../../delff.html#delff.delff_lat.alldists_lat">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">alldists_lat</span><span class="p">(</span><span class="n">sys_</span><span class="p">:</span> <span class="n">System</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="nf">dist</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span><span class="n">v1</span><span class="p">,</span><span class="n">tv</span><span class="p">):</span>
+        <span class="n">dv</span> <span class="o">=</span> <span class="n">v0</span><span class="o">-</span><span class="p">(</span><span class="n">v1</span><span class="o">+</span><span class="n">tv</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">jnn</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">dv</span><span class="p">,</span><span class="n">dv</span><span class="p">)))</span>
+
+    <span class="n">idxs</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+    <span class="k">def</span> <span class="nf">vec</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">):</span> <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">])</span> 
+    <span class="n">vec1</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vec</span><span class="p">,</span>  <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vec2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vec3</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vec2</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">latidx</span> <span class="o">=</span> <span class="n">vec3</span><span class="p">(</span><span class="n">idxs</span><span class="p">,</span><span class="n">idxs</span><span class="p">,</span><span class="n">idxs</span><span class="p">)</span>
+    <span class="n">latidx</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">latidx</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+
+    <span class="n">tvs</span> <span class="o">=</span> <span class="n">latidx</span> <span class="o">@</span> <span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span>
+
+    <span class="n">vdist1</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">dist</span>  <span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vdist2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vdist1</span><span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vdistL</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vdist2</span><span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vdist3</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vdistL</span><span class="p">,(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vdist4</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vdist3</span><span class="p">,(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">rall</span>   <span class="o">=</span> <span class="n">vdist4</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">coord</span><span class="p">,</span><span class="n">sys_</span><span class="o">.</span><span class="n">coord</span><span class="p">,</span><span class="n">tvs</span><span class="p">)</span>
+
+    <span class="c1">#print(rall.shape)</span>
+
+    <span class="k">return</span> <span class="n">rall</span><span class="p">,</span><span class="n">latidx</span></div>
+
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

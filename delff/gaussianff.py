@@ -1,0 +1,175 @@
+import os,sys
+from scipy import constants as const
+from math import pi
+import numpy as np
+import jax.numpy as jnp
+from jax import vmap
+from delff.objects import *
+from delff.gaussianhandler import GaussianHandler
+
+def write_gjf(gjffile,ff_,sys_,ffa_,atomtypelabels):
+    """
+    The function write_gjf writes the necessary input data to a Gaussian job file (gjffile)
+    in the Gaussian input file format.
+    The file contains the system's molecular geometry, charge, and atom type information in a format
+    that can be read by Gaussian software.
+    The function performs several checks to ensure the data is correctly formatted,
+    and it prints out the results for debugging purposes.
+
+    Arguments:
+        gjffile: A string containing the path and filename for the Gaussian job file to be created.
+        ff_: An instance of a class containing force field information, including charges.
+        sys_: An instance of a class containing system information, including the atomic coordinates.
+        ffa_: An instance of a class containing the force field information, including atom types.
+        atomtypelabels: A list of strings containing the labels for each atom type in the force field.
+
+    Returns:
+        This function does not return any values. It writes the input data to the specified Gaussian job file.
+    """
+
+    coord_ = jnp.reshape(sys_.coord,(-1,3))
+    assert len(ffa_.natomvec) == 1 # FF for multi-moltypes is not implemented.
+    assert len(ffa_.nmolvec) == 1 # FF for multi-moltypes is not implemented.
+    natom = ffa_.natomvec[0]
+    nmol = ffa_.nmolvec[0]
+    #print(coord_.shape,natom,nmol)
+    assert int(natom*nmol) == int(coord_.shape[0])
+    charges = ff_.charges
+    natomtypes = len(atomtypelabels)
+    assert natomtypes == len(charges)
+
+    with open(gjffile,'w') as f:
+        f.write('# amber(Print,SoftOnly) \n\n')
+        f.write('%s'%gjffile)
+        f.write(' nmol_natom %d_%d\n\n'%(nmol,natom))
+        f.write('0 1\n')
+        
+        for imol in range(nmol):
+            for iatom in range(natom):
+                atomtypelabel = atomtypelabels[ffa_.atomtypes[iatom]]
+                f.write('%s-%s-%7.5f %8.5f %8.5f %8.5f\n'
+                        %(atomtypelabel[0],atomtypelabel,charges[ffa_.atomtypes[iatom]],
+                        coord_[iatom+imol*natom,0],coord_[iatom+imol*natom,1],coord_[iatom+imol*natom,2]))
+        if not(sys_.lattice is None):
+            print("Comment: PBC in MM calculation is not avalable in G16")
+            for ixyz in range(3): f.write("Tv %8.5f %8.5f %8.5f\n"%(sys_.lattice[ixyz,0],sys_.lattice[ixyz,1],sys_.lattice[ixyz,2]))
+        f.write('\n')
+
+
+def get_sys_from_log(logfile,nmol,natom):
+    """
+    The function get_sys_from_log extracts the atomic coordinates from a Gaussian log file (logfile) 
+    and creates a System object containing the coordinates.
+    It first creates an instance of a GaussianHandler class to read the coordinates from the log file,
+    converts the coordinates to a NumPy array, and uses these coordinates to create a System object.
+    The System object is then returned.
+
+    Arguments:
+        logfile: A string containing the path and filename of the Gaussian log file from which to extract the coordinates.
+        nmol: An integer representing the number of molecules in the system.
+        natom: An integer representing the total number of atoms in the system.
+
+    Returns:
+        The function returns a System object containing the atomic coordinates extracted from the Gaussian log file.
+
+    """
+    GH = GaussianHandler()
+    coord_=GH.get_coord_log(logfile,nmol,natom)
+    coord_ = jnp.asarray(coord_)
+    sys_ = System(coord_)
+    return sys_
+
+        
+def get_sys_from_gjf(gjffile):
+    """
+    The function get_sys_from_gjf creates a System object from a Gaussian input file (gjffile) 
+    containing atomic coordinates and lattice vectors. 
+    It first creates an instance of a GaussianHandler class to read the coordinates
+    and lattice vectors from the input file, converts the coordinates to a NumPy array,
+    and uses these coordinates and lattice vectors to create a System object. The System object is then returned.
+    
+    Arguments:
+        gjffile: A string containing the path and filename of the Gaussian input file
+        from which to extract the coordinates and lattice vectors.
+
+    Returns:
+        The function returns a System object containing the atomic coordinates and lattice vectors
+        extracted from the Gaussian input file.
+    """
+
+    GH = GaussianHandler()
+    coord_,lattice_,elements,nmol,natom=GH.get_system(gjffile)
+    coord_ = jnp.asarray(coord_)
+    sys_ = System(coord_,lattice_)
+    return sys_
+        
+
+def get_ref_sys_and_energies(dirname_list,natom):
+    """
+    This function calculates the potential energy surface (PES) 
+    for a set of molecular geometries obtained from multiple Gaussian log files.
+    The PES is generated by calculating the total energy for each of the geometries,
+    and then grouping them based on their energy proximity to the global minimum.
+    The function returns a list of PESs,
+    where each PES is represented by a list of two items: a System object containing the geometries,
+    and a NumPy array containing the corresponding energies.
+
+    Arguments:
+        dirname_list : A list of strings containing the directory paths to the Gaussian log files.
+        natom : An integer representing the number of atoms in each molecule.
+
+    Returns:
+        pes_list : A list of PESs, where each PES is represented by a list of two items: 
+        a System object containing the geometries, and a NumPy array containing the corresponding energies.
+    """
+
+    nmol=1
+    pes_list=[]
+    for idir,dirname in enumerate(dirname_list):
+
+        pes=[]
+        GH = GaussianHandler()
+
+        files = os.listdir(dirname)
+        files.sort()
+
+        # get ene_min
+        ene_min = 1e+10
+        ene_margin = 0.1 # [hartree] = 60kcal/mol
+        for file in files:
+            if '.log' in file: 
+                g16energy=GH.get_info(dirname+file)['total_energy']
+                if ene_min > g16energy: ene_min = g16energy
+        print("\nEne_min g16: %f"%ene_min)
+                
+        loglist = []
+        for file in files:
+            if '.log' in file: 
+                g16energy=GH.get_info(dirname+file)['total_energy']
+                if ene_min + ene_margin > g16energy:
+                    print("including %s in PES%d"%(file,idir))
+                    loglist.append(file)
+
+        nfile = len(loglist)
+        coords   = jnp.zeros((nfile,nmol,natom,3),f64) 
+        energies = jnp.zeros((nfile),f64)
+ 
+        ifile=-1
+        for file in files:
+            if '.log' in file:
+                ifile+=1
+                g16energy=GH.get_info(dirname+file)['total_energy']
+                sys_ = get_sys_from_log(dirname+file,nmol,natom)
+                coords = coords.at[ifile,:,:,:,].set(sys_.coord)
+                g16energy = GH.get_info(dirname+file)['total_energy']
+                energies = energies.at[ifile].set(g16energy)
+
+
+        sys_pes = System(coords)
+        pes = [sys_pes,energies]
+        pes_list.append(pes)
+    return pes_list
+
+
+
+

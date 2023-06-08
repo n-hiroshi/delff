@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.opt_lat &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.opt_lat</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.opt_lat</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">vmap</span><span class="p">,</span> <span class="n">value_and_grad</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">hessian</span><span class="p">,</span> <span class="n">lax</span><span class="p">,</span> <span class="n">jvp</span><span class="p">,</span> <span class="n">custom_jvp</span><span class="p">,</span> <span class="n">jacfwd</span><span class="p">,</span> <span class="n">jit</span><span class="p">,</span> <span class="n">jacrev</span>
+<span class="c1">#import jaxopt.NonlinearCG as NCG</span>
+<span class="kn">import</span> <span class="nn">jaxopt</span> 
+<span class="kn">import</span> <span class="nn">jax.nn</span> <span class="k">as</span> <span class="nn">jnn</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">from</span> <span class="nn">jax.scipy.sparse.linalg</span> <span class="kn">import</span> <span class="n">cg</span><span class="p">,</span> <span class="n">gmres</span>
+<span class="kn">from</span> <span class="nn">jax.scipy.linalg</span> <span class="kn">import</span> <span class="n">solve</span>
+<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">minimize</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">delff.lammpsff</span> <span class="k">as</span> <span class="nn">lff</span>
+<span class="kn">import</span> <span class="nn">delff.gaussianff</span> <span class="k">as</span> <span class="nn">gff</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="nn">delff.energy</span> <span class="k">as</span> <span class="nn">energy</span>
+<span class="kn">from</span> <span class="nn">jax.experimental.host_callback</span> <span class="kn">import</span> <span class="n">id_print</span>
+
+<span class="nd">@custom_jvp</span>
+<span class="k">def</span> <span class="nf">opt_lat_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">,</span><span class="n">ffa_</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This function is a wrapper around another function opt_lat_sys_jaxopt. </span>
+<span class="sd">    It takes in three arguments and returns the result of opt_lat_sys_jaxopt function.</span>
+
+<span class="sd">    Args:</span>
+
+<span class="sd">    - ff_: A set of force field parameters for the system.</span>
+<span class="sd">    - sys_int: A System object representing the initial configuration of the system.</span>
+<span class="sd">    - ffa_: A set of additional parameters.</span>
+
+<span class="sd">    Returns:</span>
+
+<span class="sd">    - sys_opt: A System object representing the optimized configuration of the system.</span>
+<span class="sd">    - Note: The @custom_jvp decorator indicates that this function </span>
+<span class="sd">      has a custom JVP rule defined for it.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">sys_opt</span> <span class="o">=</span> <span class="n">opt_lat_sys_jaxopt</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sys_opt</span>
+
+<div class="viewcode-block" id="opt_lat_sys_jvp"><a class="viewcode-back" href="../../delff.html#delff.opt_lat.opt_lat_sys_jvp">[docs]</a><span class="nd">@jit</span>
+<span class="nd">@opt_lat_sys</span><span class="o">.</span><span class="n">defjvp</span>
+<span class="k">def</span> <span class="nf">opt_lat_sys_jvp</span><span class="p">(</span><span class="n">primals</span><span class="p">,</span> <span class="n">tangents</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This function is the JVP rule for the optimization </span>
+<span class="sd">    of the lattice system of a molecular simulation.</span>
+<span class="sd">    It calculates the Jacobian-vector product (JVP)</span>
+<span class="sd">    of the function opt_lat_sys_jaxopt using implicit differentiation.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        - primals: a tuple of three inputs: ff_ (force field parameters), </span>
+<span class="sd">        sys_int (an instance of the System class that contains the initial configuration</span>
+<span class="sd">        of the molecular system), and ffa_ (force field attributes).</span>
+
+<span class="sd">        - tangents: a tuple of three tangents that correspond to the derivatives </span>
+<span class="sd">        of ff_, sys_int, and ffa_, respectively.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - primals_out: an instance of the System class that contains the optimized</span>
+<span class="sd">        configuration of the molecular system.</span>
+
+<span class="sd">        - tangents_out: a tuple of three tangents that correspond to the derivatives </span>
+<span class="sd">        of ff_, sys_int, and ffa_ with respect to the optimized configuration </span>
+<span class="sd">        of the molecular system.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">sys2coordlat</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">):</span>
+        <span class="n">coordlat</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">coord</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+        <span class="n">coordlat</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">coordlat</span><span class="p">,</span><span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">coordlat</span>
+
+    <span class="k">def</span> <span class="nf">coordlat2sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">coordlat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">):</span>
+        <span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">sys_int</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">sys_</span><span class="o">=</span><span class="n">System</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">coordlat</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">,:],(</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> \
+                    <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">coordlat</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">:,:],(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">sys_</span>
+
+    <span class="k">def</span> <span class="nf">__energy</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">coordlat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">):</span>
+        <span class="n">sys_</span> <span class="o">=</span> <span class="n">coordlat2sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">coordlat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="n">ff_</span><span class="p">,</span> <span class="n">sys_int</span><span class="p">,</span> <span class="n">ffa_</span> <span class="o">=</span> <span class="n">primals</span>
+    <span class="n">dff_</span><span class="p">,</span> <span class="n">dsys_int</span><span class="p">,</span> <span class="n">dffa_</span> <span class="o">=</span> <span class="n">tangents</span>
+
+    <span class="n">sys_opt</span> <span class="o">=</span> <span class="n">opt_lat_sys_jaxopt</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="n">coordlat</span>  <span class="o">=</span> <span class="n">sys2coordlat</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">sys_opt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="c1">#dcoordlat = sys2coordlat(ff_,dsys_int,ffa_)</span>
+
+    <span class="n">PDE</span> <span class="o">=</span> <span class="n">grad</span><span class="p">(</span><span class="n">__energy</span><span class="p">,</span><span class="n">argnums</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">dF_dcoordlat</span> <span class="o">=</span> <span class="n">jacrev</span><span class="p">(</span><span class="n">PDE</span><span class="p">,</span><span class="n">argnums</span><span class="o">=</span><span class="mi">1</span><span class="p">)(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">coordlat</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">,</span> <span class="n">sys_int</span><span class="p">)</span>
+    <span class="n">dF_dff_</span>     <span class="o">=</span> <span class="n">jacrev</span><span class="p">(</span><span class="n">PDE</span><span class="p">,</span><span class="n">argnums</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">coordlat</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">,</span> <span class="n">sys_int</span><span class="p">)</span>
+ 
+    <span class="c1">#nmol,natoms,_,_,_,_ = dF_dsys_opt.coord.coord.shape</span>
+    <span class="n">ntot</span> <span class="o">=</span> <span class="n">coordlat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">dim2_dF_dcoordlat</span>      <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dF_dcoordlat</span><span class="p">,(</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">))</span>
+    <span class="n">dim2_dF_dbondtypes</span>     <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dF_dff_</span><span class="o">.</span><span class="n">bondtypes</span><span class="p">,(</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">dim2_dF_dangletypes</span>    <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dF_dff_</span><span class="o">.</span><span class="n">angletypes</span><span class="p">,(</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">dim2_dF_ddihedralks</span>    <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dF_dff_</span><span class="o">.</span><span class="n">dihedralks</span><span class="p">,(</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">dim2_dF_dimpropertypes</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dF_dff_</span><span class="o">.</span><span class="n">impropertypes</span><span class="p">,(</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">dim2_dF_dpairs</span>         <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dF_dff_</span><span class="o">.</span><span class="n">pairs</span><span class="p">,(</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">dim2_dF_dcharges</span>       <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dF_dff_</span><span class="o">.</span><span class="n">charges</span><span class="p">,(</span><span class="n">ntot</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+ 
+    <span class="n">dim1_dbondtypes</span> <span class="o">=</span> <span class="n">dff_</span><span class="o">.</span><span class="n">bondtypes</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">dim1_dangletypes</span> <span class="o">=</span> <span class="n">dff_</span><span class="o">.</span><span class="n">angletypes</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">dim1_ddihedralks</span> <span class="o">=</span> <span class="n">dff_</span><span class="o">.</span><span class="n">dihedralks</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">dim1_dimpropertypes</span> <span class="o">=</span> <span class="n">dff_</span><span class="o">.</span><span class="n">impropertypes</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">dim1_dpairs</span> <span class="o">=</span> <span class="n">dff_</span><span class="o">.</span><span class="n">pairs</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">dim1_dcharges</span> <span class="o">=</span> <span class="n">dff_</span><span class="o">.</span><span class="n">charges</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+ 
+    <span class="c1"># Implicit Function Differentiation</span>
+    <span class="c1"># d2E/dudu @ X = -d2E/dpdu </span>
+    <span class="n">b</span>  <span class="o">=</span> <span class="o">-</span><span class="n">dim2_dF_dbondtypes</span> <span class="o">@</span> <span class="n">dim1_dbondtypes</span>
+    <span class="n">b</span> <span class="o">+=</span> <span class="o">-</span><span class="n">dim2_dF_dangletypes</span> <span class="o">@</span> <span class="n">dim1_dangletypes</span>
+    <span class="n">b</span> <span class="o">+=</span> <span class="o">-</span><span class="n">dim2_dF_ddihedralks</span> <span class="o">@</span> <span class="n">dim1_ddihedralks</span>
+    <span class="n">b</span> <span class="o">+=</span> <span class="o">-</span><span class="n">dim2_dF_dimpropertypes</span> <span class="o">@</span> <span class="n">dim1_dimpropertypes</span>
+    <span class="n">b</span> <span class="o">+=</span> <span class="o">-</span><span class="n">dim2_dF_dpairs</span> <span class="o">@</span> <span class="n">dim1_dpairs</span>
+    <span class="n">b</span> <span class="o">+=</span> <span class="o">-</span><span class="n">dim2_dF_dcharges</span> <span class="o">@</span> <span class="n">dim1_dcharges</span>
+    <span class="n">A</span>  <span class="o">=</span>  <span class="n">dim2_dF_dcoordlat</span> <span class="c1"># d2E/dudu</span>
+
+    <span class="n">L</span><span class="p">,</span> <span class="n">U</span> <span class="o">=</span> <span class="n">ilu</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">L</span><span class="p">,</span><span class="n">b</span><span class="p">,</span><span class="n">lower</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">solve</span><span class="p">(</span><span class="n">U</span><span class="p">,</span><span class="n">z</span><span class="p">,</span><span class="n">lower</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="n">dim1_dcoordlat</span> <span class="o">=</span> <span class="n">x</span><span class="c1">#cg(A,b,tol=1e-7)[0]</span>
+    <span class="n">dim2_dcoordlat</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">dim1_dcoordlat</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+    <span class="n">dsys_opt</span>       <span class="o">=</span> <span class="n">coordlat2sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">dim2_dcoordlat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">)</span>
+ 
+    <span class="n">primals_out</span>  <span class="o">=</span> <span class="n">sys_opt</span>
+    <span class="n">tangents_out</span> <span class="o">=</span> <span class="n">dsys_opt</span>
+    <span class="k">return</span> <span class="n">primals_out</span><span class="p">,</span> <span class="n">tangents_out</span></div>
+
+<div class="viewcode-block" id="opt_lat_sys_jaxopt"><a class="viewcode-back" href="../../delff.html#delff.opt_lat.opt_lat_sys_jaxopt">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">opt_lat_sys_jaxopt</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">,</span><span class="n">ffa_</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This function is used for optimizing the energy of a system </span>
+<span class="sd">    using JAXOpt library for gradient descent optimization.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        - ff_: a function that describes the force field of the physical system.</span>
+<span class="sd">        - sys_int: an initial state of the physical system, </span>
+<span class="sd">          which contains information about the positions and momenta of its particles.</span>
+<span class="sd">        - ffa_: a set of additional parameters needed</span>
+<span class="sd">          for calculating the energy of the physical system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - sys_opt: the optimized state of the physical system, </span>
+<span class="sd">          which minimizes its energy.</span>
+<span class="sd">        - info: information about the optimization process,</span>
+<span class="sd">          such as the number of iterations and the final value of the energy.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="k">def</span> <span class="nf">func_</span><span class="p">(</span><span class="n">sys_int</span><span class="p">,</span><span class="n">ff_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">):</span> 
+        <span class="n">energy_</span> <span class="o">=</span>  <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_int</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">energy_</span>
+    <span class="n">SPM_</span> <span class="o">=</span> <span class="n">jaxopt</span><span class="o">.</span><span class="n">GradientDescent</span><span class="p">(</span><span class="n">fun</span><span class="o">=</span><span class="n">func_</span><span class="p">,</span><span class="n">tol</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">jit</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">sys_opt</span><span class="p">,</span><span class="n">info</span> <span class="o">=</span> <span class="n">SPM_</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">sys_int</span><span class="p">,</span><span class="n">ff_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sys_opt</span></div>
+
+        
+<div class="viewcode-block" id="ilu"><a class="viewcode-back" href="../../delff.html#delff.opt_lat.ilu">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">ilu</span><span class="p">(</span><span class="n">mat</span><span class="p">:</span> <span class="n">Array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    This function performs an incomplete LU decomposition on a given matrix, </span>
+<span class="sd">    which factorizes the matrix into a lower triangular matrix</span>
+<span class="sd">    and an upper triangular matrix with the same diagonal as the original matrix.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        - mat: a 2D array representing the matrix to be decomposed.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        - L: a lower triangular matrix with the same diagonal as mat.</span>
+<span class="sd">        - U: an upper triangular matrix with the same diagonal as mat.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="n">mat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">kloop</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">iloop</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span><span class="n">i</span><span class="p">):</span>
+
+            <span class="k">def</span> <span class="nf">processrow</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+                <span class="n">mat</span> <span class="o">=</span> <span class="n">mat</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">mat</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">k</span><span class="p">]</span><span class="o">/</span><span class="n">mat</span><span class="p">[</span><span class="n">k</span><span class="p">,</span><span class="n">k</span><span class="p">])</span>
+                <span class="k">def</span> <span class="nf">jloop</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span><span class="n">j</span><span class="p">):</span>
+                    <span class="n">mat</span><span class="o">=</span><span class="n">lax</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">mat</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="o">!=</span><span class="mi">0</span><span class="p">,</span><span class="n">j</span><span class="o">&gt;=</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span>
+                                 <span class="k">lambda</span> <span class="n">j</span><span class="p">:</span> <span class="n">mat</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">mat</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">]</span><span class="o">-</span><span class="n">mat</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">k</span><span class="p">]</span><span class="o">*</span><span class="n">mat</span><span class="p">[</span><span class="n">k</span><span class="p">,</span><span class="n">j</span><span class="p">]),</span>
+                                 <span class="k">lambda</span> <span class="n">j</span><span class="p">:</span> <span class="n">mat</span><span class="p">,</span><span class="n">j</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">mat</span><span class="p">,</span><span class="kc">None</span>
+                <span class="n">mat</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">iloop</span><span class="p">,</span><span class="n">mat</span><span class="p">,</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+
+            <span class="k">return</span> <span class="n">mat</span><span class="p">,</span><span class="kc">None</span>
+
+            <span class="n">mat</span><span class="o">=</span><span class="n">lax</span><span class="o">.</span><span class="n">cond</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">mat</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="n">k</span><span class="p">]</span><span class="o">!=</span><span class="mi">0</span><span class="p">,</span><span class="n">i</span><span class="o">&gt;=</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">),</span>
+                         <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">processrow</span><span class="p">(</span><span class="n">i</span><span class="p">),</span>
+                         <span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">mat</span><span class="p">,</span><span class="n">i</span><span class="p">)</span>
+
+        <span class="n">mat</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">iloop</span><span class="p">,</span><span class="n">mat</span><span class="p">,</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">mat</span><span class="p">,</span><span class="kc">None</span>
+    <span class="n">mat</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">lax</span><span class="o">.</span><span class="n">scan</span><span class="p">(</span><span class="n">kloop</span><span class="p">,</span><span class="n">mat</span><span class="p">,</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+
+
+    <span class="c1"># Lower trianglular and unit diagonal</span>
+    <span class="n">Lcol</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">v</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">i</span><span class="o">&gt;</span><span class="n">j</span><span class="p">,</span><span class="n">v</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">Lcol</span><span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span><span class="mi">1</span><span class="p">)(</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span><span class="n">mat</span><span class="p">)</span>
+    <span class="n">L</span><span class="o">+=</span><span class="n">jnp</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+
+    <span class="c1"># Upper trianglular and the same diagonals as mat</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">mat</span><span class="p">)</span>
+    <span class="n">Ucol</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">v</span><span class="p">:</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">i</span><span class="o">&lt;=</span><span class="n">j</span><span class="p">,</span><span class="n">v</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">U</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">Ucol</span><span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span><span class="mi">1</span><span class="p">)(</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span><span class="n">mat</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">L</span><span class="p">,</span> <span class="n">U</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.evalfunc &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.evalfunc</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.evalfunc</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">vmap</span><span class="p">,</span> <span class="n">value_and_grad</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">hessian</span><span class="p">,</span> <span class="n">lax</span><span class="p">,</span> <span class="n">jvp</span><span class="p">,</span> <span class="n">custom_jvp</span><span class="p">,</span> <span class="n">jacfwd</span><span class="p">,</span> <span class="n">jit</span><span class="p">,</span><span class="n">random</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">import</span> <span class="nn">jax.nn</span> <span class="k">as</span> <span class="nn">jnn</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">delff</span> <span class="kn">import</span> <span class="n">energy</span><span class="p">,</span> <span class="n">opt</span><span class="p">,</span> <span class="n">opt_lat</span><span class="p">,</span> <span class="n">rtp</span><span class="p">,</span> <span class="n">util</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">delff.rtp</span> <span class="kn">import</span> <span class="n">xyz2rtp</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">from</span> <span class="nn">jax.experimental.host_callback</span> <span class="kn">import</span> <span class="n">id_print</span>
+
+<div class="viewcode-block" id="L_sum"><a class="viewcode-back" href="../../delff.html#delff.evalfunc.L_sum">[docs]</a><span class="k">def</span> <span class="nf">L_sum</span><span class="p">(</span><span class="n">ff_reg</span> <span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span> <span class="n">work</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">algo</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span> <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the sum of residuals for different types of tasks: optimization, optimization with lattice, and potential energy surface.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_reg (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      work (dict): A dictionary containing various task parameters and balances.</span>
+<span class="sd">      algo (str): The algorithm to be used, either &#39;SDM&#39;, &#39;BO&#39;, or &#39;FDM&#39;.</span>
+<span class="sd">      verbose (bool, optional): If True, prints additional information. Defaults to False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      f64: The sum of residuals.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">task_list</span>     <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;task_list&#39;</span><span class="p">]</span>
+    <span class="n">task_balance</span>  <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;task_balance&#39;</span><span class="p">]</span>
+    <span class="n">param_balance</span> <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;param_balance&#39;</span><span class="p">]</span>
+    <span class="n">reg</span>           <span class="o">=</span> <span class="n">work</span><span class="p">[</span><span class="s1">&#39;reg&#39;</span><span class="p">]</span>
+
+    <span class="n">ff_</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">dounreg</span><span class="p">(</span><span class="n">ff_reg</span><span class="p">,</span><span class="n">reg</span><span class="p">)</span>
+
+    <span class="n">sum_resid</span><span class="o">=</span><span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">itask</span><span class="p">,</span><span class="n">task</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">task_list</span><span class="p">):</span>
+ 
+        <span class="k">if</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;opt&quot;</span><span class="p">:</span>
+            <span class="n">ffa_</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span>
+            <span class="n">sys_</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">nmolvec</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span><span class="mi">1</span><span class="p">:</span>
+
+                <span class="k">if</span> <span class="n">algo</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;SDM&#39;</span><span class="p">,</span><span class="s1">&#39;BO&#39;</span><span class="p">]:</span>
+                    <span class="n">scale</span> <span class="o">=</span> <span class="n">task_balance</span><span class="p">[</span><span class="n">itask</span><span class="p">]</span><span class="o">*</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_structure&#39;</span><span class="p">]</span>
+                    <span class="n">resid</span> <span class="o">=</span> <span class="n">scale</span><span class="o">*</span><span class="n">L_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">reg</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;FDM&#39;</span><span class="p">:</span>
+                    <span class="n">scale</span> <span class="o">=</span> <span class="n">task_balance</span><span class="p">[</span><span class="n">itask</span><span class="p">]</span><span class="o">*</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_force&#39;</span><span class="p">]</span>
+                    <span class="n">resid</span> <span class="o">=</span> <span class="n">scale</span><span class="o">*</span><span class="n">L_force</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Resid(</span><span class="si">%d</span><span class="s1">) </span><span class="si">%s</span><span class="s1">: </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">itask</span><span class="p">,</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="o">+</span><span class="n">algo</span><span class="p">,</span> <span class="n">resid</span><span class="p">))</span>
+
+        <span class="k">elif</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;opt_lat&quot;</span><span class="p">:</span>
+            <span class="n">ffa_</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span>
+            <span class="n">sys_</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span>
+            <span class="n">Ulattice</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;Ulattice&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">algo</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;SDM&#39;</span><span class="p">,</span><span class="s1">&#39;BO&#39;</span><span class="p">]:</span>
+                <span class="n">scale</span> <span class="o">=</span> <span class="n">task_balance</span><span class="p">[</span><span class="n">itask</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_structure&#39;</span><span class="p">]</span>
+                <span class="n">resid_sys</span> <span class="o">=</span><span class="n">scale</span><span class="o">*</span><span class="n">L_sys_lat</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">reg</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;FDM&#39;</span><span class="p">:</span>
+                <span class="n">scale</span> <span class="o">=</span> <span class="n">task_balance</span><span class="p">[</span><span class="n">itask</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_force&#39;</span><span class="p">]</span>
+                <span class="n">resid_sys</span> <span class="o">=</span><span class="n">scale</span><span class="o">*</span><span class="n">L_force</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Resid_sys(</span><span class="si">%d</span><span class="s1">) </span><span class="si">%s</span><span class="s1">: </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">itask</span><span class="p">,</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="o">+</span><span class="n">algo</span><span class="p">,</span> <span class="n">resid_sys</span><span class="p">))</span>
+            
+            <span class="c1"># Ulattice matching</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">task_balance</span><span class="p">[</span><span class="n">itask</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_energy&#39;</span><span class="p">]</span>
+            <span class="n">Ulattice</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;Ulattice&#39;</span><span class="p">]</span>
+            <span class="n">sys_tgt_monomer</span> <span class="o">=</span> <span class="n">task_list</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;sys&#39;</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="n">sys_tgt_monomer</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="c1"># check if sys_tgt_monomer is a monomer</span>
+
+            <span class="k">if</span> <span class="n">algo</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;SDM&#39;</span><span class="p">,</span><span class="s1">&#39;BO&#39;</span><span class="p">]:</span>
+                <span class="n">resid_ene</span> <span class="o">=</span> <span class="n">scale</span><span class="o">*</span><span class="n">L_Ulattice</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">sys_tgt_monomer</span><span class="p">,</span><span class="n">Ulattice</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;FDM&#39;</span><span class="p">:</span>
+                <span class="n">resid_ene</span> <span class="o">=</span> <span class="n">scale</span><span class="o">*</span><span class="n">L_Ulattice_tgt</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">sys_tgt_monomer</span><span class="p">,</span><span class="n">Ulattice</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Resid_ene(</span><span class="si">%d</span><span class="s1">) </span><span class="si">%s</span><span class="s1">: </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">itask</span><span class="p">,</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="o">+</span><span class="n">algo</span><span class="p">,</span> <span class="n">resid_ene</span><span class="p">))</span>
+            <span class="n">resid</span> <span class="o">=</span> <span class="n">resid_ene</span> <span class="o">+</span> <span class="n">resid_sys</span>
+
+        <span class="k">elif</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;pes&quot;</span><span class="p">:</span>
+            <span class="n">ffa_</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;ffa&#39;</span><span class="p">]</span>
+            <span class="n">sys_pes</span> <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;sys_pes&#39;</span><span class="p">]</span>
+            <span class="n">energies</span>  <span class="o">=</span> <span class="n">task</span><span class="p">[</span><span class="s1">&#39;energies&#39;</span><span class="p">]</span>
+            <span class="n">scale</span> <span class="o">=</span> <span class="n">task_balance</span><span class="p">[</span><span class="n">itask</span><span class="p">]</span><span class="o">*</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;scale_energy&#39;</span><span class="p">]</span>
+            <span class="n">resid</span> <span class="o">=</span> <span class="n">scale</span><span class="o">*</span><span class="n">L_pes</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_pes</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">energies</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Resid(</span><span class="si">%d</span><span class="s1">) </span><span class="si">%s</span><span class="s1">: </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">itask</span><span class="p">,</span><span class="n">task</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">],</span> <span class="n">resid</span><span class="p">))</span>
+
+        <span class="n">sum_resid</span> <span class="o">+=</span> <span class="n">resid</span>
+
+    <span class="n">charges</span> <span class="o">=</span> <span class="n">ff_</span><span class="o">.</span><span class="n">charges</span><span class="p">[</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">]</span>
+    <span class="n">check_neutral</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">charges</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;check sum of charges: </span><span class="si">%10.8f</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">check_neutral</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">sum_resid</span></div>
+
+<div class="viewcode-block" id="L_sys"><a class="viewcode-back" href="../../delff.html#delff.evalfunc.L_sys">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">L_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span> 
+          <span class="n">sys_tgt</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+          <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+          <span class="n">reg</span><span class="p">:</span> <span class="n">Array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes the residual between the system&#39;s optimized and target RTP coordinates.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_tgt (System): Target System object containing the coordinates in xyz format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      reg (Array): An array containing the regularization parameters.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      f64: The residual.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">nmolvec</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span>
+    <span class="n">sys_opt</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">opt_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="n">rtp_opt</span> <span class="o">=</span> <span class="n">rtp</span><span class="o">.</span><span class="n">xyz2rtp</span><span class="p">(</span><span class="n">sys_opt</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">)</span>
+    <span class="n">target_rtp</span> <span class="o">=</span> <span class="n">rtp</span><span class="o">.</span><span class="n">xyz2rtp</span><span class="p">(</span><span class="n">sys_tgt</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="n">diff_rs</span>     <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">reg</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">rtp_opt</span><span class="o">.</span><span class="n">rs</span><span class="o">-</span><span class="n">target_rtp</span><span class="o">.</span><span class="n">rs</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">diff_thetas</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">reg</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">rtp_opt</span><span class="o">.</span><span class="n">thetas</span><span class="o">-</span><span class="n">target_rtp</span><span class="o">.</span><span class="n">thetas</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">diff_phids</span>  <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">reg</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">rtp_opt</span><span class="o">.</span><span class="n">phids</span><span class="o">-</span><span class="n">target_rtp</span><span class="o">.</span><span class="n">phids</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">diff_phiis</span>  <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">reg</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">rtp_opt</span><span class="o">.</span><span class="n">phiis</span><span class="o">-</span><span class="n">target_rtp</span><span class="o">.</span><span class="n">phiis</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+    <span class="n">diff_vec</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">diff_rs</span><span class="p">,</span><span class="n">diff_thetas</span><span class="p">,</span><span class="n">diff_phids</span><span class="p">,</span><span class="n">diff_phiis</span><span class="p">))</span>
+    <span class="n">resid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">diff_vec</span><span class="p">,</span><span class="n">diff_vec</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">resid</span><span class="p">,</span> <span class="n">sys_opt</span></div>
+
+<div class="viewcode-block" id="L_sys_lat"><a class="viewcode-back" href="../../delff.html#delff.evalfunc.L_sys_lat">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">L_sys_lat</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+              <span class="n">sys_tgt</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+              <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+              <span class="n">reg</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span>
+              <span class="n">coeff_lattice</span><span class="p">:</span> <span class="n">f64</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes the residuals between the system&#39;s optimized and target lattice and coordinates.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_tgt (System): Target System object containing the coordinates in xyz format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      reg (Array): An array containing the regularization parameters.</span>
+<span class="sd">      coeff_lattice (f64, optional): Coefficient for the lattice residual. Defaults to 10.0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      f64: The combined residual of lattice and coordinates.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">sys_opt</span> <span class="o">=</span> <span class="n">opt_lat</span><span class="o">.</span><span class="n">opt_lat_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="n">diff_lattice</span> <span class="o">=</span> <span class="n">sys_opt</span><span class="o">.</span><span class="n">lattice</span> <span class="o">-</span> <span class="n">sys_tgt</span><span class="o">.</span><span class="n">lattice</span>
+    <span class="n">dim1_diff_lattice</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">reg</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span><span class="o">*</span><span class="n">diff_lattice</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">resid0</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">dim1_diff_lattice</span><span class="p">,</span><span class="n">dim1_diff_lattice</span><span class="p">)</span>
+
+    <span class="n">diff_coord</span> <span class="o">=</span> <span class="n">sys_opt</span><span class="o">.</span><span class="n">coord</span> <span class="o">-</span> <span class="n">sys_tgt</span><span class="o">.</span><span class="n">coord</span>
+    <span class="n">dim1_diff_coord</span> <span class="o">=</span> <span class="n">diff_coord</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">resid1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">dim1_diff_coord</span><span class="p">,</span><span class="n">dim1_diff_coord</span><span class="p">)</span>
+
+    <span class="n">id_print</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">diff_coord</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">))))</span>
+
+    <span class="k">return</span> <span class="n">coeff_lattice</span><span class="o">*</span><span class="n">resid0</span> <span class="o">+</span> <span class="n">resid1</span></div>
+
+
+<div class="viewcode-block" id="L_Ulattice"><a class="viewcode-back" href="../../delff.html#delff.evalfunc.L_Ulattice">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">L_Ulattice</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span> 
+               <span class="n">sys_tgt_lat</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+               <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+               <span class="n">sys_tgt_monomer</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+               <span class="n">U_lattice</span><span class="p">:</span> <span class="n">f64</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes the residual between the lattice energy calculated with the force field and the target lattice energy at the optimized structures with the ff_.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_tgt_lat (System): Target System object for the lattice containing the coordinates in xyz format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      sys_tgt_monomer (System): Target System object for the monomer containing the coordinates in xyz format.</span>
+<span class="sd">      U_lattice (f64): Target lattice energy.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      f64: The energy residual.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nmol</span><span class="p">,</span><span class="n">_</span><span class="p">,</span><span class="n">__</span> <span class="o">=</span> <span class="n">sys_tgt_lat</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">sys_opt_lat</span> <span class="o">=</span> <span class="n">opt_lat</span><span class="o">.</span><span class="n">opt_lat_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt_lat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="n">sys_opt_monomer</span> <span class="o">=</span> <span class="n">opt</span><span class="o">.</span><span class="n">opt_sys</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt_monomer</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="n">Ulatt_ff</span> <span class="o">=</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_opt_lat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span><span class="o">/</span><span class="n">nmol</span>  \
+             <span class="o">-</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_opt_monomer</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Ulatt_ff</span><span class="o">-</span><span class="n">U_lattice</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span></div>
+
+
+<div class="viewcode-block" id="L_Ulattice_tgt"><a class="viewcode-back" href="../../delff.html#delff.evalfunc.L_Ulattice_tgt">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">L_Ulattice_tgt</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span> 
+               <span class="n">sys_tgt_lat</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+               <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+               <span class="n">sys_tgt_monomer</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+               <span class="n">U_lattice</span><span class="p">:</span> <span class="n">f64</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes the residual between the lattice energy calculated with the force field and the target lattice energy at the target lattice structures.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_tgt_lat (System): Target System object for the lattice containing the coordinates in xyz format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      sys_tgt_monomer (System): Target System object for the monomer containing the coordinates in xyz format.</span>
+<span class="sd">      U_lattice (f64): Target lattice energy.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      f64: The energy residual.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">nmol</span><span class="p">,</span><span class="n">_</span><span class="p">,</span><span class="n">__</span> <span class="o">=</span> <span class="n">sys_tgt_lat</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="n">Ulatt_ff</span> <span class="o">=</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt_lat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span><span class="o">/</span><span class="n">nmol</span>  \
+             <span class="o">-</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt_monomer</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">Ulatt_ff</span><span class="o">-</span><span class="n">U_lattice</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span></div>
+
+
+
+<div class="viewcode-block" id="L_force"><a class="viewcode-back" href="../../delff.html#delff.evalfunc.L_force">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">L_force</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span> 
+             <span class="n">sys_tgt</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span> 
+             <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+             <span class="c1">#reg : Array) -&gt; f64:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes the square of the norm of the gradient of the total energy with respect to the coordinates of the system.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_tgt (System): Target System object containing the coordinates in xyz format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      f64: The square of the norm of the gradient.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">etot</span><span class="p">,</span><span class="n">grad_etot</span> <span class="o">=</span> <span class="n">value_and_grad</span><span class="p">(</span><span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">,</span><span class="n">argnums</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> \
+                                   <span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_tgt</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">)</span> 
+    <span class="n">dim1_grad_etot</span> <span class="o">=</span> <span class="n">grad_etot</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="c1"># TAKE CARE for introcucing PBC</span>
+    <span class="n">resid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">dim1_grad_etot</span><span class="p">,</span><span class="n">dim1_grad_etot</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">resid</span></div>
+
+<div class="viewcode-block" id="L_pes"><a class="viewcode-back" href="../../delff.html#delff.evalfunc.L_pes">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">L_pes</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span> 
+          <span class="n">sys_pes</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+          <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+          <span class="n">energies</span><span class="p">:</span> <span class="n">Array</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Computes the residual of the potential energy surface (PES) based on a Boltzmann-weighted square difference between reference and computed energies.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_pes (System): System object containing the PES coordinates in xyz format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      energies (Array): An array of reference energies for each structure in the PES.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      f64: The PES residual.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">min_g16_energy</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">))</span>
+    <span class="n">imin_structure</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">))</span>
+    <span class="n">energy_ref_vec</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">energies</span><span class="p">)</span><span class="o">-</span><span class="n">min_g16_energy</span>
+    <span class="n">energy_delff_vec</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">energy_ref_vec</span><span class="p">)</span>
+
+    <span class="n">nstr</span><span class="p">,</span> <span class="n">nmol</span><span class="p">,</span> <span class="n">natom</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">sys_pes</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="k">def</span> <span class="nf">energy_coord_array_input</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">coord_</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">):</span>
+        <span class="n">sys_</span> <span class="o">=</span> <span class="n">System</span><span class="p">(</span><span class="n">coord_</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">energy</span><span class="o">.</span><span class="n">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="n">energy_delff_vec</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">energy_coord_array_input</span><span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">sys_pes</span><span class="o">.</span><span class="n">coord</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">)</span>
+
+
+    <span class="n">Kb</span> <span class="o">=</span> <span class="mf">8.617333262E-5</span> <span class="c1"># [eV/K]</span>
+    <span class="n">KbT</span> <span class="o">=</span> <span class="mf">2000.0</span><span class="o">*</span><span class="n">Kb</span> <span class="c1"># [eV]</span>
+    <span class="n">KbT</span> <span class="o">=</span> <span class="n">KbT</span><span class="o">/</span><span class="mf">27.2114</span> <span class="c1"># [Hartree]</span>
+
+    <span class="n">energy_delff_vec_zero_corrected</span> <span class="o">=</span> <span class="p">(</span><span class="n">energy_delff_vec</span> <span class="o">-</span> <span class="n">energy_delff_vec</span><span class="p">[</span><span class="n">imin_structure</span><span class="p">])</span>
+
+    <span class="n">energy_mat</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">stack</span><span class="p">((</span><span class="n">energy_ref_vec</span><span class="p">,</span><span class="n">energy_delff_vec_zero_corrected</span><span class="p">),</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">energy_min</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">energy_mat</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">prob_boltzmann_2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">energy_min</span><span class="o">/</span><span class="n">KbT</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span> 
+    <span class="n">resid_vec</span> <span class="o">=</span> <span class="n">energy_ref_vec</span> <span class="o">-</span> <span class="n">energy_delff_vec_zero_corrected</span>
+    <span class="n">resid_vec</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">prob_boltzmann_2</span><span class="p">,</span><span class="n">resid_vec</span><span class="p">)</span>
+
+    <span class="n">resid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">resid_vec</span><span class="p">,</span><span class="n">resid_vec</span><span class="p">)</span>
+
+    <span class="c1"># log damp</span>
+    <span class="n">resid</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">resid</span><span class="o">&lt;</span><span class="mf">1.0</span><span class="p">,</span><span class="n">resid</span><span class="p">,</span><span class="mf">1.0</span><span class="o">+</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">resid</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">resid</span></div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

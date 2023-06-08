@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.objects &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.objects</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.objects</h1><div class="highlight"><pre>
+<span></span><span class="c1">#objects</span>
+<span class="kn">from</span> <span class="nn">delff</span> <span class="kn">import</span> <span class="n">dataclasses</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">jnp</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span>
+
+<span class="n">Array</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span>
+<span class="n">f64</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">float64</span>
+<span class="n">i32</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">int32</span>
+<span class="n">i16</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">int16</span>
+<span class="n">qqr2e</span> <span class="o">=</span> <span class="mf">0.529178</span>
+<span class="n">kcalM2Ha</span> <span class="o">=</span> <span class="mf">627.50960803</span>
+
+
+<div class="viewcode-block" id="ForceField"><a class="viewcode-back" href="../../delff.html#delff.objects.ForceField">[docs]</a><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span> <span class="nc">ForceField</span><span class="p">:</span> 
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Defines the parameters for a molecular force field.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      bondtypes (Array, optional): Bond parameters of the force field. Default is None.</span>
+<span class="sd">      angletypes (Array, optional): Angle parameters of the force field. Default is None.</span>
+<span class="sd">      dihedralks (Array, optional): Dihedral parameters of the force field. Default is None.</span>
+<span class="sd">      impropertypes (Array, optional): Improper dihedral parameters of the force field. Default is None.</span>
+<span class="sd">      pairs (Array, optional): Nonbonded interaction parameters of the force field. Default is None.</span>
+<span class="sd">      charges (Array, optional): Atomic charges for the force field. Default is None.</span>
+<span class="sd">      dielectric_constant (Array, optional): Dielectric constant for the force field. Default is 3.0.</span>
+<span class="sd">      vscale3 (f64, optional): Scaling factor for 1-3 van der Waals interactions. Default is 1.0.</span>
+<span class="sd">      cscale3 (f64, optional): Scaling factor for 1-3 Coulomb interactions. Default is 1.0.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bondtypes</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">angletypes</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">dihedralks</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">impropertypes</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span>  
+    <span class="n">pairs</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">charges</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">dielectric_constant</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="mf">3.0</span>
+    <span class="n">vscale3</span><span class="p">:</span> <span class="n">f64</span><span class="o">=</span><span class="mf">1.0</span> <span class="c1"># special_bonds dreiding</span>
+    <span class="n">cscale3</span><span class="p">:</span> <span class="n">f64</span><span class="o">=</span><span class="mf">1.0</span> <span class="c1"># special_bonds dreiding</span></div>
+
+
+<div class="viewcode-block" id="System"><a class="viewcode-back" href="../../delff.html#delff.objects.System">[docs]</a><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span> <span class="nc">System</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Defines the system of interest, including atomic coordinates and lattice parameters.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      coord (Array, optional): Atomic coordinates in the system. Default is None.</span>
+<span class="sd">      lattice (Array, optional): Lattice parameters for periodic systems. Default is None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">coord</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">lattice</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span></div>
+
+<div class="viewcode-block" id="ForceFieldAssignments"><a class="viewcode-back" href="../../delff.html#delff.objects.ForceFieldAssignments">[docs]</a><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span> <span class="nc">ForceFieldAssignments</span><span class="p">:</span> 
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Contains the assignment of force field parameters for each atom in the system.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      atomtypes (Array, optional): Atom type indices for each atom in the system. Default is None.</span>
+<span class="sd">      masses (Array, optional): Atomic masses for each atom in the system. Default is None.</span>
+<span class="sd">      bonds (Array, optional): Bond parameters for each atom in the system. Default is None.</span>
+<span class="sd">      angles (Array, optional): Angle parameters for each atom in the system. Default is None.</span>
+<span class="sd">      dihedrals (Array, optional): Dihedral parameters for each atom in the system. Default is None.</span>
+<span class="sd">      dihedralmasks (Array, optional): Masks for applying dihedral parameters. Default is None.</span>
+<span class="sd">      dihedralphis (Array, optional): Phi angles for dihedrals. Default is None.</span>
+<span class="sd">      impropers (Array, optional): Improper dihedral parameters for each atom in the system. Default is None.</span>
+<span class="sd">      adjmat012 (Array, optional): Adjacency matrix for the topological distances of zero to two. Default is None. The zero distance indicates the same atom.</span>
+<span class="sd">      adjmat3 (Array, optional): Adjacency matrix for the topological distance of three. Default is None.</span>
+<span class="sd">      nmolvec (Array, optional): Vector containing the number of molecules in the system. Default is None.</span>
+<span class="sd">      natomvec (Array, optional): Vector containing the number of atoms in each molecule. Default is None.</span>
+<span class="sd">      intermol_dists (Array, optional): Inter-molecular distances. Default is None.</span>
+<span class="sd">      nbatomtypesets (list, optional): List of non-bonded atom type sets. Default is None.</span>
+<span class="sd">      neighbors (Array, optional): Matrix containing the neighbors for each atom. Default is None.</span>
+<span class="sd">      latidx (Array, optional): Matrix containing the lattice indices for each atom. Default is None.</span>
+<span class="sd">      nkvecs (Array, optional): Matrix containing the k vectors for Ewald summation. Default is None.</span>
+<span class="sd">      nkmaxs (Array, optional): Maximum k values for each direction. Default is None.</span>
+<span class="sd">      alpha_ewald (f64, optional): Alpha parameter for Ewald summation. Default is None.</span>
+<span class="sd">      sigma_ewald (f64, optional): Sigma parameter for Ewald summation. Default is None.</span>
+<span class="sd">      vcutoff (i32, optional): Cut-off radius for van der Waals interactions. Default is 10.</span>
+<span class="sd">      ccutoff (i32, optional): Cut-off radius for Coulomb interactions. Default is 10.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">atomtypes</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">masses</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">bonds</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">angles</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">dihedrals</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">dihedralmasks</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">dihedralphis</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">impropers</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">adjmat012</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">adjmat3</span>  <span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">nmolvec</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> 
+    <span class="n">natomvec</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">intermol_dists</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">nbatomtypesets</span><span class="p">:</span> <span class="nb">list</span><span class="o">=</span><span class="kc">None</span>
+    <span class="n">neighbors</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># for neighbor list</span>
+    <span class="n">latidx</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span>    <span class="c1"># for neighbor list</span>
+    <span class="n">nkvecs</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># for Ewald sum.</span>
+    <span class="n">nkmaxs</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># for Ewald sum.</span>
+    <span class="n">alpha_ewald</span><span class="p">:</span> <span class="n">f64</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># for Ewald sum. </span>
+    <span class="n">sigma_ewald</span><span class="p">:</span> <span class="n">f64</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># sigma_ewald = 1/alpha_ewald/sqrt(2) # Lee&amp;Cai Ewald Sum paper</span>
+    <span class="n">vcutoff</span><span class="p">:</span> <span class="n">i32</span><span class="o">=</span><span class="mi">10</span> 
+    <span class="n">ccutoff</span><span class="p">:</span> <span class="n">i32</span><span class="o">=</span><span class="mi">10</span> <span class="c1">#=rcut https://wanglab.hosted.uark.edu/DLPOLY2/node114.html</span></div>
+
+<div class="viewcode-block" id="Task"><a class="viewcode-back" href="../../delff.html#delff.objects.Task">[docs]</a><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span> <span class="nc">Task</span><span class="p">:</span> 
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Defines a computational task to perform on a system.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      Ltype (str, optional): Type of task to perform. Default is &#39;structures&#39;.</span>
+<span class="sd">      params (dict, optional): Parameters required for the task. Default is None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Ltype</span><span class="p">:</span> <span class="nb">str</span><span class="o">=</span><span class="s1">&#39;structures&#39;</span>
+    <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="o">=</span><span class="kc">None</span></div>
+
+<div class="viewcode-block" id="RTPCoord"><a class="viewcode-back" href="../../delff.html#delff.objects.RTPCoord">[docs]</a><span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span> <span class="nc">RTPCoord</span><span class="p">:</span> 
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Defines the internal coordinates of a molecule in terms of bond lengths, angles, and torsions.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      rs (Array, optional): Bond lengths for each bond in the system. Default is None.</span>
+<span class="sd">      thetas (Array, optional): Bond angles for each angle in the system. Default is None.</span>
+<span class="sd">      phids (Array, optional): Dihedral angles for each dihedral in the system. Default is None.</span>
+<span class="sd">      phiis (Array, optional): Improper dihedral angles for each improper in the system. Default is None.</span>
+<span class="sd">      rall (Array, optional): Distances between all atom pairs in the system. Default is None.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rs</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># bond length</span>
+    <span class="n">thetas</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># angle</span>
+    <span class="n">phids</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># dihedral</span>
+    <span class="n">phiis</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># improper dihedral</span>
+    <span class="n">rall</span><span class="p">:</span> <span class="n">Array</span><span class="o">=</span><span class="kc">None</span> <span class="c1"># all of dists of all atom pairs</span></div>
+
+<div class="viewcode-block" id="update"><a class="viewcode-back" href="../../delff.html#delff.objects.update">[docs]</a><span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ForceField</span><span class="p">,</span> <span class="n">ForceFieldAssignments</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">ForceField</span><span class="p">,</span> <span class="n">ForceFieldAssignments</span><span class="p">]:</span>
+
+    <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="p">(</span>
+        <span class="o">**</span><span class="p">{</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="n">value</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">obj</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">})</span></div>
+              
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

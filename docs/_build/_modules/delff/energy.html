@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.energy &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.energy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.energy</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">vmap</span><span class="p">,</span><span class="n">jit</span><span class="p">,</span><span class="n">grad</span><span class="p">,</span><span class="n">jacfwd</span><span class="p">,</span><span class="n">lax</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">delff.rtp</span> <span class="kn">import</span> <span class="n">xyz2rtp</span><span class="p">,</span><span class="n">xyz2rtp_lattice</span>
+<span class="kn">from</span> <span class="nn">delff.bonding_energy</span> <span class="kn">import</span> <span class="n">bond_energy</span><span class="p">,</span> <span class="n">angle_energy</span><span class="p">,</span> <span class="n">dihedral_energy</span><span class="p">,</span> <span class="n">improper_energy</span>
+<span class="kn">from</span> <span class="nn">delff.nonbonding_energy</span> <span class="kn">import</span> <span class="n">nonbond_energy</span>
+<span class="kn">from</span> <span class="nn">delff.nonbonding_energy_neighbors</span> <span class="kn">import</span> <span class="n">nonbond_energy_neighbors</span>
+<span class="kn">from</span> <span class="nn">delff.nonbonding_energy_ewald</span> <span class="kn">import</span> <span class="n">nonbond_energy_ewald</span>
+<span class="kn">from</span> <span class="nn">jax.experimental.host_callback</span> <span class="kn">import</span> <span class="n">id_print</span>
+
+<span class="c1">#@jit</span>
+<div class="viewcode-block" id="energy"><a class="viewcode-back" href="../../delff.html#delff.energy.energy">[docs]</a><span class="k">def</span> <span class="nf">energy</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+           <span class="n">rtp_</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span>
+           <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+           <span class="n">ewald</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the total energy of a system given the force field, coordinates in rtp format, and force field assignments.</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      rtp_ (RTPCoord): RTPCoord object containing the coordinates in rtp format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      ewald (bool, optional): If True, uses Ewald summation for long-range electrostatic interactions. Defaults to True.</span>
+<span class="sd"> </span>
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Total energy of the system in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">E_bond</span><span class="p">,</span><span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span><span class="n">E_improper</span><span class="p">,</span><span class="n">E_coul</span><span class="p">,</span><span class="n">E_long</span><span class="p">,</span><span class="n">E_vdw</span> <span class="o">=</span> \
+           <span class="n">energy_each</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">rtp_</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">E_bond</span><span class="o">+</span><span class="n">E_angle</span><span class="o">+</span><span class="n">E_dihed</span><span class="o">+</span><span class="n">E_improper</span><span class="o">+</span><span class="n">E_coul</span><span class="o">+</span><span class="n">E_long</span><span class="o">+</span><span class="n">E_vdw</span> </div>
+
+<span class="c1">#@jit</span>
+<div class="viewcode-block" id="energy_coord"><a class="viewcode-back" href="../../delff.html#delff.energy.energy_coord">[docs]</a><span class="k">def</span> <span class="nf">energy_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+           <span class="n">sys_</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+           <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+           <span class="n">ewald</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the total energy of a system given the force field, coordinates in cartesian format, and force field assignments.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_ (System): System object containing the coordinates in cartesian format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      ewald (bool, optional): If True, uses Ewald summation for long-range electrostatic interactions. Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Total energy of the system in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">E_bond</span><span class="p">,</span><span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span><span class="n">E_improper</span><span class="p">,</span><span class="n">E_coul</span><span class="p">,</span><span class="n">E_long</span><span class="p">,</span><span class="n">E_vdw</span> <span class="o">=</span> \
+           <span class="n">energy_each_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">sys_</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">,</span><span class="n">ewald</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">E_bond</span><span class="o">+</span><span class="n">E_angle</span><span class="o">+</span><span class="n">E_dihed</span><span class="o">+</span><span class="n">E_improper</span><span class="o">+</span><span class="n">E_coul</span><span class="o">+</span><span class="n">E_long</span><span class="o">+</span><span class="n">E_vdw</span> </div>
+
+<span class="c1">#@jit</span>
+<div class="viewcode-block" id="energy_each_coord"><a class="viewcode-back" href="../../delff.html#delff.energy.energy_each_coord">[docs]</a><span class="k">def</span> <span class="nf">energy_each_coord</span><span class="p">(</span><span class="n">ff_</span><span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+           <span class="n">sys_</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span>
+           <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+           <span class="n">ewald</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the energy contribution of each interaction type in a system given the force field, coordinates in cartesian format, and force field assignments.</span>
+<span class="sd">    Define nonbonding type for a periodic tystem with ewald option</span>
+<span class="sd">    ewald=False: lj/charmm/coul/charmm</span>
+<span class="sd">    ewald=True : lj/charmm/coud/long with pair ewald option</span>
+<span class="sd">    ref: https://docs.lammps.org/pair_charmm.html</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_ (System): System object containing the coordinates in cartesian format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      ewald (bool, optional): If True, uses Ewald summation for long-range electrostatic interactions. Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      Tuple[float]: Tuple containing the energy contribution of each interaction type (bonding, angle, dihedral, improper, Coulombic, long-range Coulombic, and van der Waals) in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">rtp_</span> <span class="o">=</span> <span class="n">xyz2rtp</span><span class="p">(</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">E_bond</span><span class="p">,</span><span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span><span class="n">E_improper</span><span class="p">,</span><span class="n">E_coul</span><span class="p">,</span><span class="n">E_long</span><span class="p">,</span><span class="n">E_vdw</span> <span class="o">=</span> \
+           <span class="n">energy_each</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">rtp_</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">)</span>
+        <span class="n">E_long</span><span class="o">=</span><span class="mf">0.0</span>
+    <span class="k">elif</span> <span class="n">ewald</span><span class="p">:</span>
+        <span class="c1">#print(&quot;Coulomb: Ewald&quot;)</span>
+        <span class="n">rtp_lat</span> <span class="o">=</span> <span class="n">xyz2rtp_lattice</span><span class="p">(</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span> <span class="c1"># neighbors list format</span>
+        <span class="c1"># ewald methods requires 3-dim coord and lattice for a long-range energy</span>
+        <span class="n">E_bond</span><span class="p">,</span><span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span><span class="n">E_improper</span><span class="p">,</span><span class="n">E_coul</span><span class="p">,</span><span class="n">E_long</span><span class="p">,</span><span class="n">E_vdw</span> <span class="o">=</span> \
+           <span class="n">energy_each</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">rtp_</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">,</span> <span class="n">rtp_lat</span><span class="p">,</span> <span class="n">ewald</span><span class="p">,</span> <span class="n">sys_</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1">#print(&quot;Coulomb: Charmm&quot;)</span>
+        <span class="n">rtp_lat</span> <span class="o">=</span> <span class="n">xyz2rtp_lattice</span><span class="p">(</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span> <span class="c1"># neighbors list format</span>
+        <span class="n">E_bond</span><span class="p">,</span><span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span><span class="n">E_improper</span><span class="p">,</span><span class="n">E_coul</span><span class="p">,</span><span class="n">E_long</span><span class="p">,</span><span class="n">E_vdw</span> <span class="o">=</span> \
+           <span class="n">energy_each</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span> <span class="n">rtp_</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">,</span> <span class="n">rtp_lat</span><span class="p">,</span> <span class="n">ewald</span><span class="p">)</span>
+        <span class="n">E_long</span><span class="o">=</span><span class="mf">0.0</span>
+
+    <span class="k">return</span> <span class="n">E_bond</span><span class="p">,</span><span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihed</span><span class="p">,</span><span class="n">E_improper</span><span class="p">,</span><span class="n">E_coul</span><span class="p">,</span><span class="n">E_long</span><span class="p">,</span><span class="n">E_vdw</span> </div>
+
+<span class="c1">#@jit</span>
+<div class="viewcode-block" id="energy_each"><a class="viewcode-back" href="../../delff.html#delff.energy.energy_each">[docs]</a><span class="k">def</span> <span class="nf">energy_each</span><span class="p">(</span><span class="n">ff_</span> <span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+                <span class="n">rtp_</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span>
+                <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>
+                <span class="n">rtp_lat</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">ewald</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">sys_</span><span class="p">:</span> <span class="n">System</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the energy contribution of each interaction type in a system given the force field, coordinates in rtp format, and force field assignments.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      rtp_ (RTPCoord): RTPCoord object containing the coordinates in rtp format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      rtp_lat (RTPCoord, optional): RTPCoord object containing the coordinates in rtp format for the lattice sites of a periodic system. Defaults to None.</span>
+<span class="sd">      ewald (bool, optional): If True, uses Ewald summation for long-range electrostatic interactions. Defaults to True.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      Tuple[float]: Tuple containing the energy contribution of each interaction type (bonding, angle, dihedral, improper, Coulombic, long-range Coulombic, and van der Waals) in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">nmolvec</span><span class="p">)</span><span class="o">==</span><span class="mi">1</span> <span class="c1"># FF for multi-moltypes is not implemented</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">bonds</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span> <span class="n">E_bond</span> <span class="o">=</span> <span class="n">bond_energy</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span><span class="o">/</span><span class="n">kcalM2Ha</span>
+    <span class="k">else</span><span class="p">:</span> <span class="n">E_bond</span><span class="o">=</span><span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">angles</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span> <span class="n">E_angle</span> <span class="o">=</span> <span class="n">angle_energy</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span><span class="o">/</span><span class="n">kcalM2Ha</span>
+    <span class="k">else</span><span class="p">:</span> <span class="n">E_angle</span><span class="o">=</span><span class="mi">0</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">dihedrals</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span> <span class="n">E_dihedral</span> <span class="o">=</span> <span class="n">dihedral_energy</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span><span class="o">/</span><span class="n">kcalM2Ha</span>
+    <span class="k">else</span><span class="p">:</span> <span class="n">E_dihedral</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">impropers</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span> 
+        <span class="n">E_improper</span> <span class="o">=</span> <span class="n">improper_energy</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span><span class="o">/</span><span class="n">kcalM2Ha</span>
+    <span class="k">else</span><span class="p">:</span> <span class="n">E_improper</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">rtp_lat</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_vdw</span> <span class="o">=</span>  <span class="n">nonbond_energy</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+        <span class="n">E_long</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">elif</span> <span class="n">ewald</span><span class="p">:</span>
+        <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_long</span><span class="p">,</span> <span class="n">E_vdw</span> <span class="o">=</span>  <span class="n">nonbond_energy_ewald</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">rtp_lat</span><span class="p">,</span><span class="n">sys_</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_vdw</span> <span class="o">=</span>  <span class="n">nonbond_energy_neighbors</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">rtp_lat</span><span class="p">)</span>
+        <span class="n">E_long</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="n">E_vdw</span> <span class="o">=</span> <span class="n">E_vdw</span><span class="o">/</span><span class="n">kcalM2Ha</span>
+    <span class="n">E_coul</span> <span class="o">=</span><span class="n">qqr2e</span><span class="o">*</span><span class="n">E_coul</span>
+    <span class="n">E_long</span> <span class="o">=</span><span class="n">qqr2e</span><span class="o">*</span><span class="n">E_long</span>
+    <span class="k">return</span> <span class="n">E_bond</span><span class="p">,</span><span class="n">E_angle</span><span class="p">,</span><span class="n">E_dihedral</span><span class="p">,</span><span class="n">E_improper</span><span class="p">,</span><span class="n">E_coul</span><span class="p">,</span><span class="n">E_long</span><span class="p">,</span><span class="n">E_vdw</span></div>
+
+     
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

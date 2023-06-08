@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.nonbonding_energy &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.nonbonding_energy</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.nonbonding_energy</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">vmap</span><span class="p">,</span><span class="n">jit</span><span class="p">,</span><span class="n">grad</span><span class="p">,</span><span class="n">jacfwd</span><span class="p">,</span><span class="n">lax</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">import</span> <span class="nn">jax.nn</span> <span class="k">as</span> <span class="nn">jnn</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">delff.rtp</span> <span class="kn">import</span> <span class="n">xyz2rtp</span><span class="p">,</span><span class="n">xyz2rtp_lattice</span>
+
+<div class="viewcode-block" id="nonbond_energy"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy.nonbond_energy">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">nonbond_energy</span><span class="p">(</span><span class="n">ff_</span> <span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+                   <span class="n">rtp_</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span>
+                   <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the nonbonded energy of a system after correcting for intramolecular interactions.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      rtp_ (RTPCoord): RTPCoord object containing the coordinates in rtp format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      tuple: Total Coulomb energy and total van der Waals energy after corrections in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">cea</span><span class="p">,</span> <span class="n">vea</span>  <span class="o">=</span> <span class="n">nonbond_energy_allpairs</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="n">cets</span><span class="p">,</span><span class="n">vets</span> <span class="o">=</span> <span class="n">nonbond_energy_intramol_correction</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cea</span><span class="o">-</span><span class="n">cets</span><span class="p">,</span><span class="n">vea</span><span class="o">-</span><span class="n">vets</span></div>
+
+
+<div class="viewcode-block" id="calc_coulomb"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy.calc_coulomb">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">calc_coulomb</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">atomtype0</span><span class="p">,</span><span class="n">atomtype1</span><span class="p">,</span><span class="n">charges</span><span class="p">,</span><span class="n">dielectric_constant</span><span class="p">,</span><span class="n">ccoeff</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the Coulomb interaction between two atom types.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      r (float): Interatomic distance.</span>
+<span class="sd">      atomtype0 (int): Atom type index of the first atom.</span>
+<span class="sd">      atomtype1 (int): Atom type index of the second atom.</span>
+<span class="sd">      charges (array): Array containing the charges of the atoms.</span>
+<span class="sd">      dielectric_constant (float): Dielectric constant of the system.</span>
+<span class="sd">      ccoeff (float): Coulomb coefficient.</span>
+<span class="sd">      ccutoff (float): Coulomb interaction cutoff distance.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Coulomb interaction energy in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">charge0</span> <span class="o">=</span> <span class="n">charges</span><span class="p">[</span><span class="n">atomtype0</span><span class="p">]</span>
+    <span class="n">charge1</span> <span class="o">=</span> <span class="n">charges</span><span class="p">[</span><span class="n">atomtype1</span><span class="p">]</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">r</span><span class="o">&gt;</span><span class="mf">1e-2</span><span class="p">,</span><span class="n">r</span><span class="p">,</span><span class="mf">1e-2</span><span class="p">)</span>
+    <span class="n">ccoeff</span> <span class="o">=</span> <span class="n">charmm_Sfactor</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">)</span><span class="o">*</span><span class="n">f64</span><span class="p">(</span><span class="n">r</span><span class="o">&gt;</span><span class="mf">1e-1</span><span class="p">)</span><span class="o">*</span><span class="n">ccoeff</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ccoeff</span><span class="o">&gt;</span><span class="mf">1e-3</span><span class="p">,</span><span class="n">ccoeff</span><span class="o">*</span><span class="n">charge0</span><span class="o">*</span><span class="n">charge1</span><span class="o">/</span><span class="n">dielectric_constant</span><span class="o">/</span><span class="n">r</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> </div>
+
+<span class="c1"># Pair potential with the Lenard-Jones type function</span>
+<div class="viewcode-block" id="calc_vdw"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy.calc_vdw">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">calc_vdw</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">atomtype0</span><span class="p">,</span><span class="n">atomtype1</span><span class="p">,</span><span class="n">pairs</span><span class="p">,</span><span class="n">vcoeff</span><span class="p">,</span><span class="n">vcutoff</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the van der Waals interaction between two atom types.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      r (float): Interatomic distance.</span>
+<span class="sd">      atomtype0 (int): Atom type index of the first atom.</span>
+<span class="sd">      atomtype1 (int): Atom type index of the second atom.</span>
+<span class="sd">      pairs (array): Array containing the epsilon and sigma parameters for the atoms.</span>
+<span class="sd">      vcoeff (float): van der Waals coefficient.</span>
+<span class="sd">      vcutoff (float): van der Waals interaction cutoff distance.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: van der Waals interaction energy in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">r</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">r</span><span class="o">&gt;</span><span class="mf">1e-2</span><span class="p">,</span><span class="n">r</span><span class="p">,</span><span class="mf">1e-2</span><span class="p">)</span>
+    <span class="n">vcoeff</span> <span class="o">=</span> <span class="n">f64</span><span class="p">(</span><span class="n">r</span><span class="o">&lt;</span><span class="n">vcutoff</span><span class="p">)</span><span class="o">*</span><span class="n">f64</span><span class="p">(</span><span class="n">r</span><span class="o">&gt;</span><span class="mf">1e-1</span><span class="p">)</span><span class="o">*</span><span class="n">vcoeff</span>
+    <span class="c1">#vcoeff = f64(r&gt;1e-1)*vcoeff</span>
+    <span class="n">epsilon0</span> <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="n">atomtype0</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sigma0</span>   <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="n">atomtype0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">epsilon1</span> <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="n">atomtype1</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sigma1</span>   <span class="o">=</span> <span class="n">pairs</span><span class="p">[</span><span class="n">atomtype1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># arithmetic mixing for different atomtypes</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">epsilon0</span><span class="o">*</span><span class="n">epsilon1</span><span class="p">)</span>
+    <span class="n">r0</span>   <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">sigma0</span><span class="o">+</span><span class="n">sigma1</span><span class="p">)</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="o">/</span><span class="mi">6</span><span class="p">)</span>  
+    <span class="c1"># calculated with n-exp form used in Gaussian</span>
+    <span class="n">r0_r_6</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">r0</span><span class="o">/</span><span class="n">r</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span>
+
+    <span class="c1"># normal type of LJ potential in https://en.wikipedia.org/wiki/Lennard-Jones_potential</span>
+    <span class="c1"># calculated with n-exp form used in Gaussian</span>
+    <span class="n">e_vdw</span> <span class="o">=</span> <span class="n">charmm_Sfactor</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">vcutoff</span><span class="p">)</span><span class="o">*</span><span class="n">vcoeff</span><span class="o">*</span><span class="n">epsilon</span><span class="o">*</span><span class="n">r0_r_6</span><span class="o">*</span><span class="p">(</span><span class="n">r0_r_6</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>  
+    <span class="k">return</span> <span class="n">e_vdw</span></div>
+
+<div class="viewcode-block" id="charmm_Sfactor"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy.charmm_Sfactor">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">charmm_Sfactor</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">cutoff</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the CHARMM switching function value for a given distance and cutoff.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      r (float): Interatomic distance.</span>
+<span class="sd">      cutoff (float): Interaction cutoff distance.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Value of the CHARMM switching function.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">rin</span>  <span class="o">=</span> <span class="n">cutoff</span><span class="o">-</span><span class="mf">2.0</span> <span class="c1"># typically lj/charmm/coul/charmm[long] 8.0 10.0</span>
+    <span class="n">rout</span> <span class="o">=</span> <span class="n">cutoff</span>
+
+    <span class="k">def</span> <span class="nf">S</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">rin</span><span class="p">,</span> <span class="n">rout</span><span class="p">):</span>
+        <span class="n">A</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">rout</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span><span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">B</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">rout</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span><span class="o">+</span><span class="mi">2</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span><span class="o">-</span><span class="mi">3</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">rin</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">C</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">rout</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="n">jnp</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">rin</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span><span class="mi">3</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">A</span><span class="o">*</span><span class="n">B</span><span class="o">/</span><span class="n">C</span>
+
+    <span class="n">Sin</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">r</span><span class="o">&lt;=</span><span class="n">rin</span><span class="p">,</span><span class="mf">1.0</span><span class="p">,</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="n">Sboundary</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span> <span class="n">jnp</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">rin</span><span class="o">&lt;</span><span class="n">r</span><span class="p">,</span><span class="n">r</span><span class="o">&lt;</span><span class="n">rout</span><span class="p">),</span> <span class="n">S</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">rin</span><span class="p">,</span><span class="n">rout</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Sin</span><span class="o">+</span><span class="n">Sboundary</span></div>
+
+
+<div class="viewcode-block" id="nonbond_energy_allpairs"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy.nonbond_energy_allpairs">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">nonbond_energy_allpairs</span><span class="p">(</span><span class="n">ff_</span> <span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+                            <span class="n">rtp_</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span>
+                            <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the nonbonded energy of all atom pairs in the system.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      rtp_ (RTPCoord): RTPCoord object containing the coordinates in rtp format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      tuple: Total Coulomb energy and total van der Waals energy of all atom pairs in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">dielectric_constant</span> <span class="o">=</span> <span class="n">ff_</span><span class="o">.</span><span class="n">dielectric_constant</span>
+    <span class="n">v1ceal</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">calc_coulomb</span><span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># atom0</span>
+    <span class="n">v2ceal</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v1ceal</span>      <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># mol0</span>
+    <span class="n">v3ceal</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v2ceal</span>      <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># atom1</span>
+    <span class="n">v4ceal</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v3ceal</span>      <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># mol1</span>
+
+    <span class="n">coulomb_energy_allpairs</span> <span class="o">=</span>                                      \
+        <span class="n">v4ceal</span><span class="p">(</span><span class="n">rtp_</span><span class="o">.</span><span class="n">rall</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ff_</span><span class="o">.</span><span class="n">charges</span><span class="p">,</span>\
+        <span class="n">dielectric_constant</span><span class="p">,</span><span class="mf">1.</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">ccutoff</span><span class="p">)</span>
+
+    <span class="n">coulomb_energy_all</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">coulomb_energy_allpairs</span><span class="p">))))</span>
+
+    <span class="n">v1veap</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">calc_vdw</span><span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># atom0</span>
+    <span class="n">v2veap</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v1veap</span>  <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># mol0</span>
+    <span class="n">v3veap</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v2veap</span>  <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># atom1</span>
+    <span class="n">v4veap</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v3veap</span>  <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># mol1</span>
+
+    <span class="n">vdw_energy_allpairs</span> <span class="o">=</span>                                          \
+        <span class="n">v4veap</span><span class="p">(</span><span class="n">rtp_</span><span class="o">.</span><span class="n">rall</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ff_</span><span class="o">.</span><span class="n">pairs</span><span class="p">,</span><span class="mf">1.</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">vcutoff</span><span class="p">)</span>
+
+    <span class="n">vdw_energy_all</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">vdw_energy_allpairs</span><span class="p">))))</span>
+
+    <span class="k">return</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">coulomb_energy_all</span><span class="p">,</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">vdw_energy_all</span></div>
+    <span class="c1"># 0.5 for double count</span>
+
+<div class="viewcode-block" id="nonbond_energy_intramol_correction"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy.nonbond_energy_intramol_correction">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">nonbond_energy_intramol_correction</span><span class="p">(</span><span class="n">ff_</span> <span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>           
+                                       <span class="n">rtp_</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span>
+                                       <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the nonbonded energy of a system after correcting for intramolecular interactions.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      rtp_ (RTPCoord): RTPCoord object containing the coordinates in rtp format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      tuple: Total Coulomb energy and total van der Waals energy after intramolecular corrections in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">dielectric_constant</span> <span class="o">=</span> <span class="n">ff_</span><span class="o">.</span><span class="n">dielectric_constant</span>
+    <span class="n">nmol</span><span class="p">,</span> <span class="n">natom</span><span class="p">,</span> <span class="n">nmol1</span><span class="p">,</span> <span class="n">natom1</span> <span class="o">=</span> <span class="n">rtp_</span><span class="o">.</span><span class="n">rall</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">assert</span> <span class="n">nmol</span> <span class="o">==</span> <span class="n">nmol1</span>
+    <span class="k">assert</span> <span class="n">natom</span> <span class="o">==</span> <span class="n">natom1</span>
+
+    <span class="k">def</span> <span class="nf">diagonal_tsr4</span><span class="p">(</span><span class="n">tsr4</span><span class="p">,</span><span class="n">imol</span><span class="p">,</span><span class="n">natom</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tsr4</span><span class="p">[</span><span class="n">imol</span><span class="p">,:,</span><span class="n">imol</span><span class="p">,:,],(</span><span class="n">natom</span><span class="p">,</span><span class="n">natom</span><span class="p">))</span>
+    <span class="n">rintra</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">diagonal_tsr4</span><span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)(</span><span class="n">rtp_</span><span class="o">.</span><span class="n">rall</span><span class="p">,</span><span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nmol</span><span class="p">),</span><span class="n">natom</span><span class="p">)</span>
+
+    <span class="n">ccoeffmat</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">adjmat012</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">ff_</span><span class="o">.</span><span class="n">cscale3</span><span class="p">)</span><span class="o">*</span><span class="n">ffa_</span><span class="o">.</span><span class="n">adjmat3</span>
+    <span class="n">vcoeffmat</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">adjmat012</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">ff_</span><span class="o">.</span><span class="n">vscale3</span><span class="p">)</span><span class="o">*</span><span class="n">ffa_</span><span class="o">.</span><span class="n">adjmat3</span>
+    <span class="n">vcutoff</span> <span class="o">=</span> <span class="n">f64</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">vcutoff</span><span class="p">)</span>
+    <span class="n">ccutoff</span> <span class="o">=</span> <span class="n">f64</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">ccutoff</span><span class="p">)</span>
+
+    <span class="n">v1ceic</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">calc_coulomb</span><span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">v2ceic</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v1ceic</span>      <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">v3ceic</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v2ceic</span>      <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">coulomb_energy_intramol_correction</span> <span class="o">=</span>                        \
+        <span class="n">v3ceic</span><span class="p">(</span><span class="n">rintra</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ff_</span><span class="o">.</span><span class="n">charges</span><span class="p">,</span>\
+        <span class="n">dielectric_constant</span><span class="p">,</span><span class="n">ccoeffmat</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">)</span>
+
+    <span class="n">coulomb_energy_tosubstract</span> <span class="o">=</span> \
+         <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">coulomb_energy_intramol_correction</span><span class="p">))))</span>
+
+
+    <span class="n">v1veic</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">calc_vdw</span><span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">v2veic</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v1veic</span>  <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">v3veic</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v2veic</span>  <span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">vdw_energy_intramol_correction</span> <span class="o">=</span> \
+        <span class="n">v3veic</span><span class="p">(</span><span class="n">rintra</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ff_</span><span class="o">.</span><span class="n">pairs</span><span class="p">,</span><span class="n">vcoeffmat</span><span class="p">,</span><span class="n">vcutoff</span><span class="p">)</span>
+
+    <span class="n">vdw_energy_tosubstract</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">vdw_energy_intramol_correction</span><span class="p">)))</span>
+
+    <span class="k">return</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">coulomb_energy_tosubstract</span><span class="p">,</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">vdw_energy_tosubstract</span></div>
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.nonbonding_energy_ewald &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.nonbonding_energy_ewald</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.nonbonding_energy_ewald</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<span class="c1">#from math import pi</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">vmap</span><span class="p">,</span><span class="n">jit</span><span class="p">,</span><span class="n">grad</span><span class="p">,</span><span class="n">jacfwd</span><span class="p">,</span><span class="n">lax</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">from</span> <span class="nn">jax.scipy.special</span> <span class="kn">import</span> <span class="n">erfc</span><span class="p">,</span><span class="n">erf</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">delff.util</span> <span class="kn">import</span> <span class="o">*</span> <span class="c1">#get_reciprocal_lattice_and_V</span>
+<span class="c1">#from delff.rtp import xyz2rtp,xyz2rtp_lattice</span>
+<span class="kn">from</span> <span class="nn">delff.nonbonding_energy</span> <span class="kn">import</span> <span class="n">nonbond_energy_intramol_correction</span><span class="p">,</span><span class="n">charmm_Sfactor</span><span class="p">,</span><span class="n">calc_vdw</span><span class="p">,</span><span class="n">calc_coulomb</span>
+
+<span class="n">rt2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">pi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
+
+<div class="viewcode-block" id="nonbond_energy_ewald"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy_ewald.nonbond_energy_ewald">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">nonbond_energy_ewald</span><span class="p">(</span><span class="n">ff_</span> <span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+                         <span class="n">rtp_</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span>
+                         <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span>                            
+                         <span class="n">rtp_lat</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span>
+                         <span class="n">sys_</span><span class="p">:</span><span class="n">System</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the non-bonded energy of a system using Ewald summation.</span>
+
+<span class="sd">    The function first computes the non-bonded energy without intra-molecular correction, </span>
+<span class="sd">    then it calculates the intra-molecular correction and subtracts it from the total non-bonded energy.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">        rtp_ (RTPCoord): RTPCoord object containing the system coordinates in rtp format.</span>
+<span class="sd">        ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">        rtp_lat (RTPCoord): RTPCoord object containing the lattice coordinates in rtp format.</span>
+<span class="sd">        sys_ (System): System object containing the information for the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float: The non-bonded energy of the system using Ewald summation in Ha.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_long</span><span class="p">,</span> <span class="n">E_vdw</span>  <span class="o">=</span> <span class="n">nonbond_energy_ewald_wo_intramol_correction</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_lat</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">sys_</span><span class="p">)</span> 
+    <span class="n">cets</span><span class="p">,</span><span class="n">vets</span> <span class="o">=</span> <span class="n">nonbond_energy_intramol_correction</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">rtp_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="n">E_coul</span> <span class="o">-=</span> <span class="n">cets</span>
+    <span class="n">E_vdw</span>  <span class="o">-=</span> <span class="n">vets</span>
+    <span class="k">return</span> <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_long</span><span class="p">,</span> <span class="n">E_vdw</span></div>
+
+<div class="viewcode-block" id="calc_coulomb_short"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy_ewald.calc_coulomb_short">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">calc_coulomb_short</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">atomtype0</span><span class="p">,</span><span class="n">atomtype1</span><span class="p">,</span><span class="n">charges</span><span class="p">,</span><span class="n">dielectric_constant</span><span class="p">,</span><span class="n">ccoeff</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">,</span><span class="n">sigma</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the short-range Coulomb energy between two atoms.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      r (float): Distance between two atoms.</span>
+<span class="sd">      atomtype0 (int): Atom type of the first atom.</span>
+<span class="sd">      atomtype1 (int): Atom type of the second atom.</span>
+<span class="sd">      charges (array): Array containing the charges of each atom type.</span>
+<span class="sd">      dielectric_constant (float): The constant representing the dielectric properties of the medium.</span>
+<span class="sd">      ccoeff (float): The coefficient for the short-range part of the interaction.</span>
+<span class="sd">      ccutoff (float): The cutoff distance for the short-range part of the interaction.</span>
+<span class="sd">      sigma (float): The Ewald summation parameter.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Short-range Coulomb energy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">charge0</span> <span class="o">=</span> <span class="n">charges</span><span class="p">[</span><span class="n">atomtype0</span><span class="p">]</span>
+    <span class="n">charge1</span> <span class="o">=</span> <span class="n">charges</span><span class="p">[</span><span class="n">atomtype1</span><span class="p">]</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">r</span><span class="o">&gt;</span><span class="mf">1e-10</span><span class="p">,</span><span class="n">r</span><span class="p">,</span><span class="mf">1e-10</span><span class="p">)</span>
+    <span class="n">ccoeff</span> <span class="o">=</span> <span class="n">f64</span><span class="p">(</span><span class="n">r</span><span class="o">&lt;</span><span class="n">ccutoff</span><span class="p">)</span><span class="o">*</span><span class="n">f64</span><span class="p">(</span><span class="n">r</span><span class="o">&gt;</span><span class="mf">1e-3</span><span class="p">)</span><span class="o">*</span><span class="n">ccoeff</span>
+    <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ccoeff</span><span class="o">&gt;</span><span class="mf">1e-3</span><span class="p">,</span> \
+            <span class="n">ccoeff</span><span class="o">*</span><span class="n">charge0</span><span class="o">*</span><span class="n">charge1</span><span class="o">/</span><span class="n">dielectric_constant</span><span class="o">/</span><span class="n">r</span><span class="o">*</span><span class="n">erfc</span><span class="p">(</span><span class="n">r</span><span class="o">/</span><span class="n">rt2</span><span class="o">/</span><span class="n">sigma</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> </div>
+
+<div class="viewcode-block" id="calc_coulomb_long_all"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy_ewald.calc_coulomb_long_all">[docs]</a><span class="nd">@jit</span> 
+<span class="k">def</span> <span class="nf">calc_coulomb_long_all</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the long-range Coulomb energy of the system.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_ (System): System object containing the lattice and coordinates of the system.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Long-range Coulomb energy of the system.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">sigma</span><span class="o">=</span><span class="n">ffa_</span><span class="o">.</span><span class="n">sigma_ewald</span>
+    <span class="n">rec_lattice</span> <span class="p">,</span><span class="n">V</span> <span class="o">=</span> <span class="n">get_reciprocal_lattice_and_V</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span><span class="p">)</span>
+    <span class="n">kvecs</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">nkvecs</span> <span class="o">@</span> <span class="n">rec_lattice</span>
+
+    <span class="k">def</span> <span class="nf">q_exp_ikr</span><span class="p">(</span><span class="n">charge</span><span class="p">,</span><span class="n">rvec</span><span class="p">,</span><span class="n">kvec</span><span class="p">):</span>
+        <span class="n">kr</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">kvec</span><span class="p">,</span><span class="n">rvec</span><span class="p">)</span>
+        <span class="n">q_exp_ikr</span> <span class="o">=</span> <span class="n">charge</span> <span class="o">*</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">kr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">q_exp_ikr</span>
+    
+    <span class="k">def</span> <span class="nf">structure_factor_2norm</span><span class="p">(</span><span class="n">charges</span><span class="p">,</span><span class="n">coord</span><span class="p">,</span><span class="n">kvec</span><span class="p">):</span>
+        <span class="n">v1</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">q_exp_ikr</span><span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># atoms in a mol</span>
+        <span class="n">v2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">v1</span>       <span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> <span class="c1"># mols in a unit cell</span>
+        <span class="n">v2val</span> <span class="o">=</span> <span class="n">v2</span><span class="p">(</span><span class="n">charges</span><span class="p">,</span><span class="n">coord</span><span class="p">,</span><span class="n">kvec</span><span class="p">)</span>
+        <span class="n">v2sum</span> <span class="o">=</span>  <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">v2val</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">v2sum</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">conj</span><span class="p">(</span><span class="n">v2sum</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">ksumed_func</span><span class="p">(</span><span class="n">charges</span><span class="p">,</span><span class="n">coord</span><span class="p">,</span><span class="n">kvec</span><span class="p">,</span><span class="n">sigma</span><span class="p">):</span>
+        <span class="n">k2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">kvec</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+        <span class="n">prefactor</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span> <span class="o">-</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k2</span> <span class="o">/</span><span class="mi">2</span> <span class="p">)</span> <span class="o">/</span> <span class="n">k2</span>
+        <span class="k">return</span> <span class="n">prefactor</span> <span class="o">*</span> <span class="n">structure_factor_2norm</span><span class="p">(</span><span class="n">charges</span><span class="p">,</span><span class="n">coord</span><span class="p">,</span><span class="n">kvec</span><span class="p">)</span>
+
+    <span class="n">charges</span> <span class="o">=</span> <span class="n">ff_</span><span class="o">.</span><span class="n">charges</span><span class="p">[</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">]</span>
+
+    <span class="n">coulomb_energy_long_</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>                \
+        <span class="n">vmap</span><span class="p">(</span><span class="n">ksumed_func</span><span class="p">,(</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>     \
+        <span class="p">(</span><span class="n">charges</span><span class="p">,</span><span class="n">sys_</span><span class="o">.</span><span class="n">coord</span><span class="p">,</span><span class="n">kvecs</span><span class="p">,</span><span class="n">sigma</span><span class="p">))</span>
+
+    <span class="n">relative_prefactor_long2short</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">pi</span><span class="o">/</span><span class="n">V</span><span class="o">/</span><span class="n">ff_</span><span class="o">.</span><span class="n">dielectric_constant</span>
+
+    <span class="k">return</span> <span class="n">relative_prefactor_long2short</span><span class="o">*</span><span class="n">coulomb_energy_long_</span></div>
+
+<div class="viewcode-block" id="calc_coulomb_self"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy_ewald.calc_coulomb_self">[docs]</a><span class="nd">@jit</span> 
+<span class="k">def</span> <span class="nf">calc_coulomb_self</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the self-interaction part of the Coulomb energy.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      sys_ (System): System object containing the lattice and coordinates of the system.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Self-interaction part of the Coulomb energy.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">sigma_ewald</span>
+    <span class="n">nmol</span> <span class="o">=</span> <span class="n">sys_</span><span class="o">.</span><span class="n">coord</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sqsum_charge</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ff_</span><span class="o">.</span><span class="n">charges</span><span class="p">[</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">]</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">nmol</span>
+    <span class="k">return</span> <span class="mi">1</span><span class="o">/</span><span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="o">*</span><span class="n">pi</span><span class="p">)</span><span class="o">/</span><span class="n">sigma</span><span class="o">*</span><span class="n">sqsum_charge</span><span class="o">/</span><span class="n">ff_</span><span class="o">.</span><span class="n">dielectric_constant</span></div>
+
+
+<div class="viewcode-block" id="nonbond_energy_ewald_wo_intramol_correction"><a class="viewcode-back" href="../../delff.html#delff.nonbonding_energy_ewald.nonbond_energy_ewald_wo_intramol_correction">[docs]</a><span class="nd">@jit</span>
+<span class="k">def</span> <span class="nf">nonbond_energy_ewald_wo_intramol_correction</span><span class="p">(</span>
+                         <span class="n">ff_</span> <span class="p">:</span> <span class="n">ForceField</span><span class="p">,</span>
+                         <span class="n">rtp_</span><span class="p">:</span> <span class="n">RTPCoord</span><span class="p">,</span> <span class="c1"># must be neghbors list type </span>
+                         <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">,</span> <span class="c1"># must include a neighbors-property </span>
+                         <span class="n">sys_</span><span class="p">:</span> <span class="n">System</span>
+                         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">f64</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the non-bonded energy of the system using Ewald summation, without intramolecular correction.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">      ff_ (ForceField): ForceField object containing the parameters for the force field.</span>
+<span class="sd">      rtp_ (RTPCoord): RTPCoord object containing the coordinates in RTP format.</span>
+<span class="sd">      ffa_ (ForceFieldAssignments): ForceFieldAssignments object containing the force field assignments for each atom in the system.</span>
+<span class="sd">      sys_ (System): System object containing the lattice and coordinates of the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">      float: Non-bonded energy of the system.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sigma</span><span class="o">=</span><span class="n">ffa_</span><span class="o">.</span><span class="n">sigma_ewald</span>
+    <span class="c1"># short range</span>
+    <span class="k">def</span> <span class="nf">calc_coulomb_neighbors</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">neighbors_each</span><span class="p">,</span><span class="n">atomtypes</span><span class="p">,</span>\
+            <span class="n">charges</span><span class="p">,</span><span class="n">dielectric_constant</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">,</span><span class="n">sigma</span><span class="p">):</span>
+        <span class="n">ccoeff</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">neighbors_each</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]))</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">calc_coulomb_short</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">atomtypes</span><span class="p">[</span><span class="n">neighbors_each</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span><span class="n">atomtypes</span><span class="p">[</span><span class="n">neighbors_each</span><span class="p">[</span><span class="mi">6</span><span class="p">]],</span>\
+                            <span class="n">charges</span><span class="p">,</span><span class="n">dielectric_constant</span><span class="p">,</span><span class="n">ccoeff</span><span class="p">,</span><span class="n">ccutoff</span><span class="p">,</span><span class="n">sigma</span><span class="p">)</span>
+
+    <span class="n">v1cnei</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">calc_coulomb_neighbors</span><span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> 
+    <span class="n">coulomb_energy_allpairs</span> <span class="o">=</span> <span class="n">v1cnei</span><span class="p">(</span><span class="n">rtp_</span><span class="o">.</span><span class="n">rall</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">neighbors</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span>
+                                     <span class="n">ff_</span><span class="o">.</span><span class="n">charges</span><span class="p">,</span><span class="n">ff_</span><span class="o">.</span><span class="n">dielectric_constant</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">ccutoff</span><span class="p">,</span><span class="n">sigma</span><span class="p">)</span>
+    <span class="n">coulomb_energy_short</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">coulomb_energy_allpairs</span><span class="p">))))</span>
+
+    <span class="c1"># long range</span>
+    <span class="n">coulomb_energy_long</span>  <span class="o">=</span> <span class="n">calc_coulomb_long_all</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="c1"># self energy</span>
+    <span class="n">coulomb_energy_self</span>  <span class="o">=</span> <span class="n">calc_coulomb_self</span><span class="p">(</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+
+    <span class="c1"># sum up</span>
+    <span class="n">E_coul</span> <span class="o">=</span> <span class="n">coulomb_energy_short</span>
+    <span class="n">E_long</span> <span class="o">=</span> <span class="n">coulomb_energy_long</span> <span class="o">-</span> <span class="n">coulomb_energy_self</span>
+
+    <span class="k">def</span> <span class="nf">calc_vdw_neighbors</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">neighbors_each</span><span class="p">,</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">pairs</span><span class="p">,</span><span class="n">vcutoff</span><span class="p">):</span>
+        <span class="n">vcoeff</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">neighbors_each</span><span class="p">[</span><span class="mi">2</span><span class="p">:</span><span class="mi">5</span><span class="p">]))</span><span class="o">==</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mf">0.5</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">calc_vdw</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="n">atomtypes</span><span class="p">[</span><span class="n">neighbors_each</span><span class="p">[</span><span class="mi">1</span><span class="p">]],</span><span class="n">atomtypes</span><span class="p">[</span><span class="n">neighbors_each</span><span class="p">[</span><span class="mi">6</span><span class="p">]],</span>
+                        <span class="n">pairs</span><span class="p">,</span><span class="n">vcoeff</span><span class="p">,</span><span class="n">vcutoff</span><span class="p">)</span>
+
+    <span class="n">v1vnei</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">calc_vdw_neighbors</span><span class="p">,(</span>   <span class="mi">0</span><span class="p">,</span>   <span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span> 
+    <span class="n">vdw_energy_allpairs</span> <span class="o">=</span> <span class="n">v1vnei</span><span class="p">(</span><span class="n">rtp_</span><span class="o">.</span><span class="n">rall</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">neighbors</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">,</span><span class="n">ff_</span><span class="o">.</span><span class="n">pairs</span><span class="p">,</span><span class="n">ffa_</span><span class="o">.</span><span class="n">vcutoff</span><span class="p">)</span>
+    <span class="n">E_vdw</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">vdw_energy_allpairs</span><span class="p">))))</span>
+
+    <span class="k">return</span> <span class="n">E_coul</span><span class="p">,</span> <span class="n">E_long</span><span class="p">,</span> <span class="n">E_vdw</span> </div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.gaussianff &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.gaussianff</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.gaussianff</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span><span class="o">,</span><span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">pi</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">vmap</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">delff.gaussianhandler</span> <span class="kn">import</span> <span class="n">GaussianHandler</span>
+
+<div class="viewcode-block" id="write_gjf"><a class="viewcode-back" href="../../delff.html#delff.gaussianff.write_gjf">[docs]</a><span class="k">def</span> <span class="nf">write_gjf</span><span class="p">(</span><span class="n">gjffile</span><span class="p">,</span><span class="n">ff_</span><span class="p">,</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">,</span><span class="n">atomtypelabels</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The function write_gjf writes the necessary input data to a Gaussian job file (gjffile)</span>
+<span class="sd">    in the Gaussian input file format.</span>
+<span class="sd">    The file contains the system&#39;s molecular geometry, charge, and atom type information in a format</span>
+<span class="sd">    that can be read by Gaussian software.</span>
+<span class="sd">    The function performs several checks to ensure the data is correctly formatted,</span>
+<span class="sd">    and it prints out the results for debugging purposes.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        gjffile: A string containing the path and filename for the Gaussian job file to be created.</span>
+<span class="sd">        ff_: An instance of a class containing force field information, including charges.</span>
+<span class="sd">        sys_: An instance of a class containing system information, including the atomic coordinates.</span>
+<span class="sd">        ffa_: An instance of a class containing the force field information, including atom types.</span>
+<span class="sd">        atomtypelabels: A list of strings containing the labels for each atom type in the force field.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        This function does not return any values. It writes the input data to the specified Gaussian job file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">coord_</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">coord</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">natomvec</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="c1"># FF for multi-moltypes is not implemented.</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ffa_</span><span class="o">.</span><span class="n">nmolvec</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="c1"># FF for multi-moltypes is not implemented.</span>
+    <span class="n">natom</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">natomvec</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">nmol</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">nmolvec</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="c1">#print(coord_.shape,natom,nmol)</span>
+    <span class="k">assert</span> <span class="nb">int</span><span class="p">(</span><span class="n">natom</span><span class="o">*</span><span class="n">nmol</span><span class="p">)</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">coord_</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">charges</span> <span class="o">=</span> <span class="n">ff_</span><span class="o">.</span><span class="n">charges</span>
+    <span class="n">natomtypes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">atomtypelabels</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">natomtypes</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">charges</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">gjffile</span><span class="p">,</span><span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;# amber(Print,SoftOnly) </span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">gjffile</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39; nmol_natom </span><span class="si">%d</span><span class="s1">_</span><span class="si">%d</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">))</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;0 1</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">imol</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nmol</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">iatom</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">natom</span><span class="p">):</span>
+                <span class="n">atomtypelabel</span> <span class="o">=</span> <span class="n">atomtypelabels</span><span class="p">[</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">[</span><span class="n">iatom</span><span class="p">]]</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">-</span><span class="si">%s</span><span class="s1">-</span><span class="si">%7.5f</span><span class="s1"> </span><span class="si">%8.5f</span><span class="s1"> </span><span class="si">%8.5f</span><span class="s1"> </span><span class="si">%8.5f</span><span class="se">\n</span><span class="s1">&#39;</span>
+                        <span class="o">%</span><span class="p">(</span><span class="n">atomtypelabel</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">atomtypelabel</span><span class="p">,</span><span class="n">charges</span><span class="p">[</span><span class="n">ffa_</span><span class="o">.</span><span class="n">atomtypes</span><span class="p">[</span><span class="n">iatom</span><span class="p">]],</span>
+                        <span class="n">coord_</span><span class="p">[</span><span class="n">iatom</span><span class="o">+</span><span class="n">imol</span><span class="o">*</span><span class="n">natom</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="n">coord_</span><span class="p">[</span><span class="n">iatom</span><span class="o">+</span><span class="n">imol</span><span class="o">*</span><span class="n">natom</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span><span class="n">coord_</span><span class="p">[</span><span class="n">iatom</span><span class="o">+</span><span class="n">imol</span><span class="o">*</span><span class="n">natom</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="ow">not</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Comment: PBC in MM calculation is not avalable in G16&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">ixyz</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span> <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;Tv </span><span class="si">%8.5f</span><span class="s2"> </span><span class="si">%8.5f</span><span class="s2"> </span><span class="si">%8.5f</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span><span class="p">[</span><span class="n">ixyz</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span><span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span><span class="p">[</span><span class="n">ixyz</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span><span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span><span class="p">[</span><span class="n">ixyz</span><span class="p">,</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="get_sys_from_log"><a class="viewcode-back" href="../../delff.html#delff.gaussianff.get_sys_from_log">[docs]</a><span class="k">def</span> <span class="nf">get_sys_from_log</span><span class="p">(</span><span class="n">logfile</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The function get_sys_from_log extracts the atomic coordinates from a Gaussian log file (logfile) </span>
+<span class="sd">    and creates a System object containing the coordinates.</span>
+<span class="sd">    It first creates an instance of a GaussianHandler class to read the coordinates from the log file,</span>
+<span class="sd">    converts the coordinates to a NumPy array, and uses these coordinates to create a System object.</span>
+<span class="sd">    The System object is then returned.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        logfile: A string containing the path and filename of the Gaussian log file from which to extract the coordinates.</span>
+<span class="sd">        nmol: An integer representing the number of molecules in the system.</span>
+<span class="sd">        natom: An integer representing the total number of atoms in the system.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The function returns a System object containing the atomic coordinates extracted from the Gaussian log file.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">GH</span> <span class="o">=</span> <span class="n">GaussianHandler</span><span class="p">()</span>
+    <span class="n">coord_</span><span class="o">=</span><span class="n">GH</span><span class="o">.</span><span class="n">get_coord_log</span><span class="p">(</span><span class="n">logfile</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">)</span>
+    <span class="n">coord_</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coord_</span><span class="p">)</span>
+    <span class="n">sys_</span> <span class="o">=</span> <span class="n">System</span><span class="p">(</span><span class="n">coord_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sys_</span></div>
+
+        
+<div class="viewcode-block" id="get_sys_from_gjf"><a class="viewcode-back" href="../../delff.html#delff.gaussianff.get_sys_from_gjf">[docs]</a><span class="k">def</span> <span class="nf">get_sys_from_gjf</span><span class="p">(</span><span class="n">gjffile</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The function get_sys_from_gjf creates a System object from a Gaussian input file (gjffile) </span>
+<span class="sd">    containing atomic coordinates and lattice vectors. </span>
+<span class="sd">    It first creates an instance of a GaussianHandler class to read the coordinates</span>
+<span class="sd">    and lattice vectors from the input file, converts the coordinates to a NumPy array,</span>
+<span class="sd">    and uses these coordinates and lattice vectors to create a System object. The System object is then returned.</span>
+<span class="sd">    </span>
+<span class="sd">    Arguments:</span>
+<span class="sd">        gjffile: A string containing the path and filename of the Gaussian input file</span>
+<span class="sd">        from which to extract the coordinates and lattice vectors.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The function returns a System object containing the atomic coordinates and lattice vectors</span>
+<span class="sd">        extracted from the Gaussian input file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">GH</span> <span class="o">=</span> <span class="n">GaussianHandler</span><span class="p">()</span>
+    <span class="n">coord_</span><span class="p">,</span><span class="n">lattice_</span><span class="p">,</span><span class="n">elements</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="o">=</span><span class="n">GH</span><span class="o">.</span><span class="n">get_system</span><span class="p">(</span><span class="n">gjffile</span><span class="p">)</span>
+    <span class="n">coord_</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coord_</span><span class="p">)</span>
+    <span class="n">sys_</span> <span class="o">=</span> <span class="n">System</span><span class="p">(</span><span class="n">coord_</span><span class="p">,</span><span class="n">lattice_</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sys_</span></div>
+        
+
+<div class="viewcode-block" id="get_ref_sys_and_energies"><a class="viewcode-back" href="../../delff.html#delff.gaussianff.get_ref_sys_and_energies">[docs]</a><span class="k">def</span> <span class="nf">get_ref_sys_and_energies</span><span class="p">(</span><span class="n">dirname_list</span><span class="p">,</span><span class="n">natom</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function calculates the potential energy surface (PES) </span>
+<span class="sd">    for a set of molecular geometries obtained from multiple Gaussian log files.</span>
+<span class="sd">    The PES is generated by calculating the total energy for each of the geometries,</span>
+<span class="sd">    and then grouping them based on their energy proximity to the global minimum.</span>
+<span class="sd">    The function returns a list of PESs,</span>
+<span class="sd">    where each PES is represented by a list of two items: a System object containing the geometries,</span>
+<span class="sd">    and a NumPy array containing the corresponding energies.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        dirname_list : A list of strings containing the directory paths to the Gaussian log files.</span>
+<span class="sd">        natom : An integer representing the number of atoms in each molecule.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        pes_list : A list of PESs, where each PES is represented by a list of two items: </span>
+<span class="sd">        a System object containing the geometries, and a NumPy array containing the corresponding energies.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nmol</span><span class="o">=</span><span class="mi">1</span>
+    <span class="n">pes_list</span><span class="o">=</span><span class="p">[]</span>
+    <span class="k">for</span> <span class="n">idir</span><span class="p">,</span><span class="n">dirname</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dirname_list</span><span class="p">):</span>
+
+        <span class="n">pes</span><span class="o">=</span><span class="p">[]</span>
+        <span class="n">GH</span> <span class="o">=</span> <span class="n">GaussianHandler</span><span class="p">()</span>
+
+        <span class="n">files</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">dirname</span><span class="p">)</span>
+        <span class="n">files</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+
+        <span class="c1"># get ene_min</span>
+        <span class="n">ene_min</span> <span class="o">=</span> <span class="mf">1e+10</span>
+        <span class="n">ene_margin</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="c1"># [hartree] = 60kcal/mol</span>
+        <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;.log&#39;</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span> 
+                <span class="n">g16energy</span><span class="o">=</span><span class="n">GH</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">dirname</span><span class="o">+</span><span class="n">file</span><span class="p">)[</span><span class="s1">&#39;total_energy&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">ene_min</span> <span class="o">&gt;</span> <span class="n">g16energy</span><span class="p">:</span> <span class="n">ene_min</span> <span class="o">=</span> <span class="n">g16energy</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Ene_min g16: </span><span class="si">%f</span><span class="s2">&quot;</span><span class="o">%</span><span class="n">ene_min</span><span class="p">)</span>
+                
+        <span class="n">loglist</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;.log&#39;</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span> 
+                <span class="n">g16energy</span><span class="o">=</span><span class="n">GH</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">dirname</span><span class="o">+</span><span class="n">file</span><span class="p">)[</span><span class="s1">&#39;total_energy&#39;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">ene_min</span> <span class="o">+</span> <span class="n">ene_margin</span> <span class="o">&gt;</span> <span class="n">g16energy</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;including </span><span class="si">%s</span><span class="s2"> in PES</span><span class="si">%d</span><span class="s2">&quot;</span><span class="o">%</span><span class="p">(</span><span class="n">file</span><span class="p">,</span><span class="n">idir</span><span class="p">))</span>
+                    <span class="n">loglist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+
+        <span class="n">nfile</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">loglist</span><span class="p">)</span>
+        <span class="n">coords</span>   <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nfile</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="n">f64</span><span class="p">)</span> 
+        <span class="n">energies</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nfile</span><span class="p">),</span><span class="n">f64</span><span class="p">)</span>
+ 
+        <span class="n">ifile</span><span class="o">=-</span><span class="mi">1</span>
+        <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;.log&#39;</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">ifile</span><span class="o">+=</span><span class="mi">1</span>
+                <span class="n">g16energy</span><span class="o">=</span><span class="n">GH</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">dirname</span><span class="o">+</span><span class="n">file</span><span class="p">)[</span><span class="s1">&#39;total_energy&#39;</span><span class="p">]</span>
+                <span class="n">sys_</span> <span class="o">=</span> <span class="n">get_sys_from_log</span><span class="p">(</span><span class="n">dirname</span><span class="o">+</span><span class="n">file</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">)</span>
+                <span class="n">coords</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">ifile</span><span class="p">,:,:,:,]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">coord</span><span class="p">)</span>
+                <span class="n">g16energy</span> <span class="o">=</span> <span class="n">GH</span><span class="o">.</span><span class="n">get_info</span><span class="p">(</span><span class="n">dirname</span><span class="o">+</span><span class="n">file</span><span class="p">)[</span><span class="s1">&#39;total_energy&#39;</span><span class="p">]</span>
+                <span class="n">energies</span> <span class="o">=</span> <span class="n">energies</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="n">ifile</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">g16energy</span><span class="p">)</span>
+
+
+        <span class="n">sys_pes</span> <span class="o">=</span> <span class="n">System</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span>
+        <span class="n">pes</span> <span class="o">=</span> <span class="p">[</span><span class="n">sys_pes</span><span class="p">,</span><span class="n">energies</span><span class="p">]</span>
+        <span class="n">pes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pes</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pes_list</span></div>
+
+
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

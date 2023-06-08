@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.gaussianhandler &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.gaussianhandler</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.gaussianhandler</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">subprocess</span><span class="o">,</span><span class="nn">os</span><span class="o">,</span><span class="nn">sys</span><span class="o">,</span><span class="nn">shutil</span><span class="o">,</span><span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+
+<div class="viewcode-block" id="GaussianHandler"><a class="viewcode-back" href="../../delff.html#delff.gaussianhandler.GaussianHandler">[docs]</a><span class="k">class</span> <span class="nc">GaussianHandler</span><span class="p">():</span>
+
+<div class="viewcode-block" id="GaussianHandler.get_system"><a class="viewcode-back" href="../../delff.html#delff.gaussianhandler.GaussianHandler.get_system">[docs]</a>    <span class="k">def</span> <span class="nf">get_system</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">gjffile</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function reads a Gaussian input file (.gjf) and extracts the molecular system information </span>
+<span class="sd">        including the coordinates, lattice vectors (if any), and elements.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            self: the instance of the class containing the function.</span>
+<span class="sd">            gjffile: a string representing the path to the Gaussian input file (.gjf) to be read.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            coord: a 3D numpy array of shape (nmol, natom, 3), </span>
+<span class="sd">                   representing the coordinates of the atoms in the molecular system.</span>
+<span class="sd">            lattice: a 2D numpy array of shape (3,3) or None, i</span>
+<span class="sd">                   representing the lattice vectors of the system. </span>
+<span class="sd">                   If there is no lattice vector information, it is set to None.</span>
+<span class="sd">            elements: a list of strings, representing the elements of the atoms in the molecular system.</span>
+<span class="sd">            nmol: an integer, representing the number of molecules in the system.</span>
+<span class="sd">            natom: an integer, representing the number of atoms in each molecule.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># read gjf</span>
+        <span class="n">fi2</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">gjffile</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">fi2</span><span class="p">:</span> <span class="c1"># reae gjf</span>
+            <span class="k">if</span> <span class="n">line</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;#&#39;</span><span class="p">:</span> <span class="k">break</span>        
+
+        <span class="n">ilatmat</span><span class="o">=</span><span class="mi">0</span>
+
+        <span class="n">_</span> <span class="o">=</span> <span class="n">fi2</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span> <span class="c1"># vacant line</span>
+
+        <span class="c1"># comment line</span>
+        <span class="c1"># sytax:</span>
+        <span class="c1"># [comment] nmol_natom [no. of molecules]_[no. of atoms in a molecule]</span>
+        <span class="n">words</span> <span class="o">=</span> <span class="n">fi2</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> 
+        <span class="n">multimol</span><span class="o">=</span><span class="kc">False</span>
+        <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">words</span><span class="p">:</span> 
+            <span class="k">if</span> <span class="s1">&#39;nmol_natom&#39;</span><span class="o">==</span><span class="n">word</span><span class="p">:</span>
+                 <span class="n">multimol</span><span class="o">=</span><span class="kc">True</span>
+                 <span class="n">nmollist</span><span class="o">=</span><span class="p">[]</span>
+                 <span class="n">natomlist</span><span class="o">=</span><span class="p">[]</span>
+                 <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">multimol</span><span class="p">:</span> 
+                 <span class="k">try</span><span class="p">:</span> 
+                     <span class="p">[</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span> <span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">word</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)]</span>
+                 <span class="k">except</span><span class="p">:</span> <span class="k">raise</span> <span class="n">Error</span><span class="p">(</span><span class="n">words</span><span class="p">)</span>
+                 <span class="k">break</span><span class="p">;</span>
+        <span class="k">assert</span> <span class="n">multimol</span>
+
+        <span class="n">_</span> <span class="o">=</span> <span class="n">fi2</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span> <span class="c1"># vacant line</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">fi2</span><span class="o">.</span><span class="n">readline</span><span class="p">()</span> <span class="c1"># charege multiplicity line</span>
+
+        <span class="n">coord</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nmol</span><span class="o">*</span><span class="n">natom</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="nb">float</span><span class="p">)</span>
+        <span class="n">lattice</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">iatom</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">ilat</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">fi2</span><span class="p">:</span>
+            <span class="n">words</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">)</span><span class="o">&gt;=</span><span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">iatom</span><span class="o">&lt;</span><span class="n">nmol</span><span class="o">*</span><span class="n">natom</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">)</span><span class="o">==</span><span class="mi">4</span>
+                    <span class="n">elements</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="n">coord</span><span class="p">[</span><span class="n">iatom</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">words</span><span class="p">[</span><span class="mi">1</span><span class="p">:]])</span>
+                    <span class="n">iatom</span><span class="o">+=</span><span class="mi">1</span>
+                <span class="k">elif</span> <span class="n">words</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;Tv&#39;</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">ilat</span><span class="o">==</span><span class="mi">0</span><span class="p">:</span> <span class="n">lattice</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="nb">float</span><span class="p">)</span>
+                        <span class="n">lattice</span><span class="p">[</span><span class="n">ilat</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">3</span><span class="p">])])</span>
+                        <span class="n">ilat</span><span class="o">+=</span><span class="mi">1</span>
+        <span class="k">assert</span> <span class="n">iatom</span><span class="o">==</span><span class="n">nmol</span><span class="o">*</span><span class="n">natom</span>
+        <span class="k">assert</span> <span class="n">lattice</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ilat</span><span class="o">==</span><span class="mi">3</span>
+
+        <span class="n">coord</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">coord</span><span class="p">,(</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+        <span class="n">fi2</span><span class="o">.</span><span class="n">close</span><span class="p">()</span> 
+        <span class="k">return</span> <span class="n">coord</span><span class="p">,</span><span class="n">lattice</span><span class="p">,</span><span class="n">elements</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span></div>
+
+<div class="viewcode-block" id="GaussianHandler.get_coord_log"><a class="viewcode-back" href="../../delff.html#delff.gaussianhandler.GaussianHandler.get_coord_log">[docs]</a>    <span class="k">def</span> <span class="nf">get_coord_log</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">logfile</span><span class="p">,</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function reads the log file generated by Gaussian 16 </span>
+<span class="sd">        and extracts the atomic coordinates of a molecule from it.</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">            logfile: A string containing the name of the log file to be read.</span>
+<span class="sd">            nmol: An integer specifying the number of molecules in the system.</span>
+<span class="sd">            natom: An integer specifying the number of atoms in each molecule.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            coord: A NumPy array of shape (nmol, natom, 3) </span>
+<span class="sd">                containing the Cartesian coordinates of all the atoms in the system.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">natomall</span> <span class="o">=</span> <span class="n">nmol</span><span class="o">*</span><span class="n">natom</span>
+        <span class="n">iline</span><span class="o">=</span><span class="mi">0</span>
+        <span class="n">f</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">logfile</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">iline</span><span class="o">+=</span><span class="mi">1</span>
+            <span class="k">if</span> <span class="s1">&#39;Input orientation:&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span> <span class="n">line_coord</span><span class="o">=</span><span class="n">iline</span>
+            <span class="k">if</span> <span class="s1">&#39;Standard orientation:&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span> <span class="n">line_coord</span><span class="o">=</span><span class="n">iline</span>
+        <span class="n">line_coord</span> <span class="o">+=</span> <span class="mi">5</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="c1"># get coord</span>
+        <span class="n">coord</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">nmol</span><span class="o">*</span><span class="n">natom</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="n">iline</span><span class="o">=</span><span class="mi">0</span>
+        <span class="n">iatom</span><span class="o">=</span><span class="mi">0</span>
+        <span class="n">flag_coord</span><span class="o">=</span><span class="kc">False</span>
+        <span class="n">f</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">logfile</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">iline</span><span class="o">+=</span><span class="mi">1</span>
+            <span class="k">if</span> <span class="n">iline</span><span class="o">==</span><span class="n">line_coord</span><span class="p">:</span> <span class="n">flag_coord</span> <span class="o">=</span><span class="kc">True</span>
+            <span class="k">if</span> <span class="n">iatom</span> <span class="o">==</span> <span class="n">natomall</span><span class="p">:</span> <span class="k">break</span>
+            <span class="k">if</span> <span class="n">flag_coord</span><span class="p">:</span>
+               <span class="n">words</span><span class="o">=</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+               <span class="n">coord</span><span class="p">[</span><span class="n">iatom</span><span class="p">,:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span><span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">4</span><span class="p">]),</span><span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">5</span><span class="p">])])</span>
+               <span class="n">iatom</span><span class="o">+=</span><span class="mi">1</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="n">coord</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">coord</span><span class="p">,(</span><span class="n">nmol</span><span class="p">,</span><span class="n">natom</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">coord</span></div>
+
+<div class="viewcode-block" id="GaussianHandler.get_info"><a class="viewcode-back" href="../../delff.html#delff.gaussianhandler.GaussianHandler.get_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">logfile</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The function get_info reads a specified logfile line by line,</span>
+<span class="sd">        looks for a line containing the string &quot;SCF Done:&quot;,</span>
+<span class="sd">        extracts the numerical value of the total energy from that line,</span>
+<span class="sd">        and returns a dictionary with the key &#39;total_energy&#39; and the extracted value as its value.</span>
+
+<span class="sd">        Arguments:</span>
+<span class="sd">            self: This argument refers to the instance of the class that this function belongs to.</span>
+<span class="sd">            logfile: A string containing the path to the log file to be read.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            The function returns a dictionary with the key &#39;total_energy&#39; </span>
+<span class="sd">            and the value of the total energy extracted from the log file.</span>
+<span class="sd">            The dictionary is stored as an attribute logdict of the instance self.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">f</span><span class="o">=</span><span class="nb">open</span><span class="p">(</span><span class="n">logfile</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;SCF Done:&#39;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+               <span class="n">words</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+               <span class="n">total_energy</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">words</span><span class="p">[</span><span class="mi">4</span><span class="p">])</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logdict</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;total_energy&#39;</span><span class="p">:</span><span class="n">total_energy</span><span class="p">}</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">logdict</span></div></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>delff.params_ewald &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">delff.params_ewald</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for delff.params_ewald</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pytest</span><span class="o">,</span><span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span><span class="nn">sys</span><span class="o">,</span><span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">&#39;../&#39;</span><span class="p">))</span>
+<span class="c1"># sys.path.append(&#39;/home/nakano/mos/&#39;)</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">resetwarnings</span><span class="p">()</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="ne">FutureWarning</span><span class="p">)</span>
+<span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s1">&#39;ignore&#39;</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">jnp</span><span class="p">,</span> <span class="n">lax</span><span class="p">,</span> <span class="n">vmap</span><span class="p">,</span> <span class="n">jacfwd</span><span class="p">,</span> <span class="n">grad</span><span class="p">,</span> <span class="n">nn</span> <span class="k">as</span> <span class="n">jnn</span><span class="p">,</span> <span class="n">jit</span>
+
+<span class="kn">import</span> <span class="nn">delff.evalfunc</span> <span class="k">as</span> <span class="nn">ef</span>
+<span class="kn">import</span> <span class="nn">delff.util</span> <span class="k">as</span> <span class="nn">util</span>
+<span class="kn">from</span> <span class="nn">delff.objects</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span>  <span class="nn">delff</span> <span class="kn">import</span> <span class="n">energy</span><span class="p">,</span><span class="n">opt</span><span class="p">,</span><span class="n">opt_lat</span><span class="p">,</span><span class="n">metaopt</span><span class="p">,</span><span class="n">rtp</span><span class="p">,</span><span class="n">util</span>
+
+<span class="n">kcalM2Hartree</span> <span class="o">=</span> <span class="mf">627.50960803</span>
+
+<div class="viewcode-block" id="define_ewald_params"><a class="viewcode-back" href="../../delff.html#delff.params_ewald.define_ewald_params">[docs]</a><span class="k">def</span> <span class="nf">define_ewald_params</span><span class="p">(</span><span class="n">sys_</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ForceFieldAssignments</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function defines Ewald parameters for a given system using the force field assignments</span>
+<span class="sd">    and returns the updated force field assignments.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        sys_ (System): A System object representing the system to calculate Ewald parameters for.</span>
+<span class="sd">        ffa_ (ForceFieldAssignments): A ForceFieldAssignments object containing force field assignments.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ffa_ (ForceFieldAssignments): An updated ForceFieldAssignments object with the calculated Ewald parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">alpha_ewald</span> <span class="o">=</span><span class="n">ffa_</span><span class="o">.</span><span class="n">alpha_ewald</span>
+    <span class="n">sigma_ewald</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">alpha_ewald</span><span class="o">/</span><span class="n">jnp</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">2.0</span><span class="p">)</span>
+    <span class="n">ffa_</span> <span class="o">=</span> <span class="n">update</span><span class="p">(</span><span class="n">ffa_</span><span class="p">,</span><span class="n">alpha_ewald</span><span class="o">=</span><span class="n">alpha_ewald</span><span class="p">,</span><span class="n">sigma_ewald</span><span class="o">=</span><span class="n">sigma_ewald</span><span class="p">)</span>
+    <span class="n">nkvecs</span> <span class="o">=</span> <span class="n">calc_nkvecs</span><span class="p">(</span><span class="n">sys_</span><span class="p">,</span><span class="n">ffa_</span><span class="p">)</span>
+    <span class="n">ffa_</span> <span class="o">=</span> <span class="n">update</span><span class="p">(</span><span class="n">ffa_</span><span class="p">,</span><span class="n">nkvecs</span><span class="o">=</span><span class="n">nkvecs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ffa_</span></div>
+
+<div class="viewcode-block" id="calc_nkvecs"><a class="viewcode-back" href="../../delff.html#delff.params_ewald.calc_nkvecs">[docs]</a><span class="k">def</span> <span class="nf">calc_nkvecs</span><span class="p">(</span><span class="n">sys_</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span> <span class="n">ffa_</span><span class="p">:</span> <span class="n">ForceFieldAssignments</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function calculates the k vectors for Ewald summation </span>
+<span class="sd">    using combinatorial method and returns the result.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        sys_ (System): A System object representing the system to calculate k vectors for.</span>
+<span class="sd">        ffa_ (ForceFieldAssignments): A ForceFieldAssignments </span>
+<span class="sd">        object containing force field assignments including cutoff radius and alpha.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        nkvecs (Array): A numpy array containing the k vectors for Ewald summation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rcut</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">ccutoff</span>
+    <span class="n">Ls</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">sys_</span><span class="o">.</span><span class="n">lattice</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">alpha_ewald</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# Lattice constants of the unit cell:&#39;</span><span class="p">,</span> <span class="n">Ls</span><span class="p">)</span>
+    <span class="n">nkmaxs</span> <span class="o">=</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">nkmaxs</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;## Ewald sum. parameters&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# alpha:&#39;</span><span class="p">,</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">alpha_ewald</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# Rcut:&#39;</span><span class="p">,</span> <span class="n">ffa_</span><span class="o">.</span><span class="n">ccutoff</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# nkmaxs:&#39;</span><span class="p">,</span> <span class="n">nkmaxs</span><span class="p">)</span>
+    <span class="n">nkvecs</span> <span class="o">=</span> <span class="n">calc_kvecs_combinatorial</span><span class="p">(</span><span class="n">sys_</span><span class="p">,</span><span class="n">nkmaxs</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;# num of kvecs:&#39;</span><span class="p">,</span> <span class="n">nkvecs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">nkvecs</span></div>
+
+<div class="viewcode-block" id="calc_kvecs_combinatorial"><a class="viewcode-back" href="../../delff.html#delff.params_ewald.calc_kvecs_combinatorial">[docs]</a><span class="k">def</span> <span class="nf">calc_kvecs_combinatorial</span><span class="p">(</span><span class="n">sys_</span><span class="p">:</span> <span class="n">System</span><span class="p">,</span> <span class="n">nkmaxs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Array</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function is a subroutine of calc_nkvecs calculating k vectors for Ewald summation using combinatorial method.</span>
+
+<span class="sd">    Arguments:</span>
+<span class="sd">        sys_ (System): A System object representing the system to calculate k vectors for.</span>
+<span class="sd">        nkmaxs (Array): A tuple containing the maximum number of k-vectors in each direction.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        nkvecs (Array): A numpy array containing the k vectors for Ewald summation. The shape of the array is (num_kvecs,3).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">idxs0</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">nkmaxs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="o">+</span><span class="n">nkmaxs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">idxs1</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">nkmaxs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="o">+</span><span class="n">nkmaxs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">idxs2</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="n">nkmaxs</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="o">+</span><span class="n">nkmaxs</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">vec</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">):</span> <span class="k">return</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">])</span> 
+    <span class="n">vec1</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vec</span><span class="p">,</span>  <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vec2</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vec1</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="kc">None</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vec3</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">vec2</span><span class="p">,</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span><span class="kc">None</span><span class="p">,</span><span class="mi">0</span><span class="p">),</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">nkvecs_</span> <span class="o">=</span> <span class="n">vec3</span><span class="p">(</span><span class="n">idxs0</span><span class="p">,</span><span class="n">idxs1</span><span class="p">,</span><span class="n">idxs2</span><span class="p">)</span>
+    <span class="n">nkvecs</span>  <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">nkvecs_</span><span class="p">,(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+    <span class="n">nkvecs</span> <span class="o">=</span> <span class="n">nkvecs</span><span class="p">[</span><span class="n">jnp</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">nkvecs</span><span class="p">,</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">&gt;</span><span class="mf">1e-10</span><span class="p">,:]</span> <span class="c1"># omit (0,0,0)</span>
+    <span class="k">return</span> <span class="n">nkvecs</span></div>
+
+
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

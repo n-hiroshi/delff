@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tips &mdash; delff  documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="delff package" href="delff.html" />
+    <link rel="prev" title="Welcome to delff’s documentation!" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            delff
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Tips:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tips</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="delff.html">delff package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">delff</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Tips</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/readme.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tips">
+<h1>Tips<a class="headerlink" href="#tips" title="Permalink to this heading"></a></h1>
+<p>![repo version](<a class="reference external" href="https://img.shields.io/badge/Version-v.%201.0-green">https://img.shields.io/badge/Version-v.%201.0-green</a>)
+![python version](<a class="reference external" href="https://img.shields.io/badge/python-v.3.7-blue">https://img.shields.io/badge/python-v.3.7-blue</a>)
+![license](<a class="reference external" href="https://img.shields.io/badge/license-CC_BY_4.0-orange">https://img.shields.io/badge/license-CC_BY_4.0-orange</a>)</p>
+<p># SPhG
+SPhG(Sparse Pharmacophore Graph)</p>
+<p>This library contains all of the required files to compute Sparse Pharmacophore Graphs
+and clustering/visualization methods of a group of SPhGs for understanding ligand design convepts.</p>
+<p>For more information, please read :
+* ChemRxiv(<a class="reference external" href="https://chemrxiv.org/engage/chemrxiv/article-details/63e098c4805bad91da1bbf37">https://chemrxiv.org/engage/chemrxiv/article-details/63e098c4805bad91da1bbf37</a>)</p>
+<p>## Getting Started</p>
+<p>### Prerequisites</p>
+<p>The following libraries are required:</p>
+<p><a href="#id1"><span class="problematic" id="id2">*</span></a>[Python 3](<a class="reference external" href="https://www.python.org/download/releases/3.8/">https://www.python.org/download/releases/3.8/</a>) version 3.8.16</p>
+<p><a href="#id3"><span class="problematic" id="id4">*</span></a>[JAX] version 0.4.2</p>
+<p><a href="#id5"><span class="problematic" id="id6">*</span></a>[JAXOPT] version 0.6</p>
+<p><a href="#id7"><span class="problematic" id="id8">*</span></a>[SciPy] version 1.10.1</p>
+<p><a href="#id9"><span class="problematic" id="id10">*</span></a>[NumPy](<a class="reference external" href="https://scipy.org/install.html">https://scipy.org/install.html</a>) version 1.23.5</p>
+<p><a href="#id11"><span class="problematic" id="id12">*</span></a>[pandas](<a class="reference external" href="https://pandas.pydata.org">https://pandas.pydata.org</a>) version 2.0.1</p>
+<p><a href="#id13"><span class="problematic" id="id14">*</span></a>[LAMMPS](<a class="reference external" href="https://lammps.org">https://lammps.org</a>) release 27 May 2021</p>
+<p><a href="#id15"><span class="problematic" id="id16">*</span></a>[Gaussian](<a class="reference external" href="https://gaussian.com">https://gaussian.com</a>) version 16.B01</p>
+<p>The operability of the versios at the side of the libary names were confirmed.</p>
+<p>### Installation</p>
+<p>Installation is completed by copying this whole library to your local computer.</p>
+<p>### Test</p>
+<p>The following commands let you comfirm the successfull installation
+with a sample dataset in the same directory as _alltests.sh_.
+All of the usecases are included in the test programs.</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">cd</span> <span class="pre">[installation</span> <span class="pre">directory]/delff/test/</span>
+<span class="pre">python</span> <span class="pre">main_lattice_[molecule</span> <span class="pre">name].py</span> <span class="pre">[ID]</span> <span class="pre">[FDM/SDM]</span>
+<span class="pre">`</span></code>
+[molecule_name] = acanil/antcen/benzac/biphen/bpheno/naphol/pencen/tphben
+[ID] = any numbers from 0 to 999 indicating the folder name
+in which omputed results will be stored.
+[FDM/SDM] = force field optimization methods discussed in the paper.</p>
+<p>### Further information</p>
+<p>The documants of ‘Read the docs’(<a class="reference external" href="https://docs.readthedocs.io/en/stable/">https://docs.readthedocs.io/en/stable/</a>) format is generated by the command:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">cd</span> <span class="pre">[installation</span> <span class="pre">directory]/delff</span>
+<span class="pre">./autosphinx.sh</span>
+<span class="pre">`</span></code></p>
+<p>## Authors</p>
+<ul class="simple">
+<li><p>Hiroshi Nakano</p></li>
+<li><p>Shinnosuke Hattori</p></li>
+<li><p>Hajime Kobayashi</p></li>
+<li><p>Takumi Araki</p></li>
+<li><p>Masakazu Ukita</p></li>
+<li><p>Toshio Nishi</p></li>
+<li><p>Yoshihiro Kudo</p></li>
+</ul>
+<p>## License</p>
+<p>&lt;a rel=”license” href=”<a class="reference external" href="http://creativecommons.org/licenses/by-nc/4.0/">http://creativecommons.org/licenses/by-nc/4.0/</a>”&gt;&lt;img alt=”Creative Commons License” style=”border-width:0” src=”https://i.creativecommons.org/l/by-nc/4.0/88x31.png” /&gt;&lt;/a&gt;&lt;br /&gt;This work is licensed under a &lt;a rel=”license” href=”https://creativecommons.org/licenses/by-nc/4.0/”&gt;Creative Commons Attribution-NonCommercial 4.0 International License&lt;/a&gt;.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to delff’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="delff.html" class="btn btn-neutral float-right" title="delff package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Hiroshi Nakano.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
