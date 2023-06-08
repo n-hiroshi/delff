@@ -1,5 +1,5 @@
 ![repo version](https://img.shields.io/badge/Version-v.%201.0-green)
-![python version](https://img.shields.io/badge/python-v.3.7-blue)
+![python version](https://img.shields.io/badge/python-v.3.8-blue)
 ![license](https://img.shields.io/badge/license-CC_BY_4.0-orange)
 
 # delff
