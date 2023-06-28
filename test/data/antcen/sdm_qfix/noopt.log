@@ -1,0 +1,138 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##################################################################################
+# settings
+algo: SDM
+root: ./data/antcen/res092/
+name: antcen
+idx: 92
+taskids:  [0, 1]
+task_balance:  [1, [1, 1]]
+Hsubl: 3.81642e-02 [Hartree]
+Ulattice: -4.00525e-02 [Hartree]
+
+
+
+############### PREPERATION ###############
+
+
+### Monomer Structure Matching
+['CA0', 'CA1', 'CA2', 'CA3', 'HA0', 'HA1', 'HA2']
+./data/antcen/res092/ff_opt92.pickle loaded to ff_ini
+
+## Force Field
+
+bondtypes
+ 344.302    1.085
+ 478.545    1.382
+
+angletypes
+  48.443  119.919
+  67.119  120.088
+
+dihdralks
+  -0.004   3.430  -0.032   0.778
+
+impropertypes
+   1.100  180.000    2.000
+
+pairs
+   0.091    3.411
+   0.095    3.458
+   0.097    3.464
+   0.097    3.494
+   0.018    2.590
+   0.018    2.556
+   0.018    2.608
+
+charges
+  -0.443    0.221   -0.233   -0.076    0.189    0.120    0.094 
+dielectric_constant 3.0
+
+vscale3 1.0
+
+cscale3 1.0
+
+
+# atomtypelabels ['CA0', 'CA1', 'CA2', 'CA3', 'HA0', 'HA1', 'HA2']
+
+
+### Crystal Structure Matching
+
+# target crystal lattice
+ [[17.124       0.          0.        ]
+ [ 0.          6.038       0.        ]
+ [-6.36682219  0.          9.19485895]]
+
+# target crystal coord shape
+ (4, 24, 3)
+
+# cutoff for neighbors: 12.000000
+(4, 24, 343, 4, 24)
+
+# num. of neighbors: 66312
+# Lattice constants of the unit cell: [17.124  6.038 11.184]
+## Ewald sum. parameters
+# alpha: 0.18228667
+# Rcut: 10
+# nkmaxs: [2 1 1]
+# num of kvecs: 44
+2
+
+
+### PES Matching
+
+
+
+##### EVALUATION OF FF #####
+Resid(0) optSDM: 0.04647027
+4444444444444444
+0.09083639
+Resid_sys(1) opt_latSDM: 0.01836035
+33333333333333333
+-0.04005253
+-0.03854777
+0.00150476
+Resid_ene(1) opt_latSDM: 0.00928758
+check sum of charges: -0.00002000
+# L_sum(SDM): 0.07411819

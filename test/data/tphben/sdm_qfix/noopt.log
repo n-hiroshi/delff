@@ -1,0 +1,189 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##################################################################################
+# settings
+algo: SDM
+root: ./data/tphben/res095/
+name: tphben
+idx: 95
+taskids:  [0, 1, 2]
+task_balance:  [1, [1, 1], 1]
+Hsubl: 5.62940e-02 [Hartree]
+Ulattice: -5.81824e-02 [Hartree]
+
+
+
+############### PREPERATION ###############
+
+
+### Monomer Structure Matching
+['CP0', 'CA0', 'HA0', 'CP1', 'CA1', 'CA2', 'CA3', 'HA1', 'HA2', 'HA3']
+./data/tphben/res095/ff_opt95.pickle loaded to ff_ini
+
+## Force Field
+
+bondtypes
+ 344.285    1.080
+ 463.313    1.362
+ 478.906    1.367
+ 349.098    1.455
+
+angletypes
+  67.460  117.941
+  49.617  121.263
+  67.550  117.797
+  66.408  121.639
+  64.740  123.529
+  46.688  119.283
+
+dihdralks
+  -0.008   3.564  -0.075   0.243
+  -0.065   6.067  -0.577  -8.437
+  -0.001   0.928  -0.076  -0.031
+
+impropertypes
+   1.100  180.000    2.000
+
+pairs
+   0.095    3.555
+   0.098    3.425
+   0.018    2.485
+   0.099    3.699
+   0.075    3.552
+   0.083    3.647
+   0.093    3.631
+   0.016    2.480
+   0.005    2.353
+   0.014    2.492
+
+charges
+   0.042   -0.164    0.091    0.117   -0.160   -0.072   -0.112    0.107    0.091    0.093 
+
+dielectric_constant 3.0
+
+vscale3 1.0
+
+cscale3 1.0
+
+
+# atomtypelabels ['CP0', 'CA0', 'HA0', 'CP1', 'CA1', 'CA2', 'CA3', 'HA1', 'HA2', 'HA3']
+
+
+### Crystal Structure Matching
+
+# target crystal lattice
+ [[ 7.61   0.     0.   ]
+ [ 0.    19.765  0.   ]
+ [ 0.     0.    11.258]]
+
+# target crystal coord shape
+ (4, 42, 3)
+
+# cutoff for neighbors: 12.000000
+(4, 42, 343, 4, 42)
+
+# num. of neighbors: 110684
+# Lattice constants of the unit cell: [ 7.61  19.765 11.258]
+## Ewald sum. parameters
+# alpha: 0.14572648
+# Rcut: 10
+# nkmaxs: [1 2 1]
+# num of kvecs: 44
+2
+
+
+### PES Matching
+
+Ene_min g16: -925.311892
+including _conf000.log in PES0
+including _conf001.log in PES0
+including _conf002.log in PES0
+including _conf003.log in PES0
+including _conf004.log in PES0
+including _conf005.log in PES0
+including _conf006.log in PES0
+including _conf007.log in PES0
+including _conf008.log in PES0
+including _conf009.log in PES0
+including _conf010.log in PES0
+including _conf011.log in PES0
+including _conf012.log in PES0
+including _conf013.log in PES0
+including _conf014.log in PES0
+including _conf015.log in PES0
+including _conf016.log in PES0
+including _conf017.log in PES0
+including _conf018.log in PES0
+including _conf019.log in PES0
+including _conf020.log in PES0
+including _conf021.log in PES0
+including _conf022.log in PES0
+including _conf023.log in PES0
+including _conf024.log in PES0
+including _conf025.log in PES0
+including _conf026.log in PES0
+including _conf027.log in PES0
+including _conf028.log in PES0
+including _conf029.log in PES0
+including _conf030.log in PES0
+including _conf031.log in PES0
+including _conf032.log in PES0
+including _conf033.log in PES0
+including _conf034.log in PES0
+including _conf035.log in PES0
+
+
+
+##### EVALUATION OF FF #####
+Resid(0) optSDM: 0.00260108
+4444444444444444
+0.24760908
+Resid_sys(1) opt_latSDM: 0.06883699
+33333333333333333
+-0.05818241
+-0.05809978
+8.26312769e-05
+Resid_ene(1) opt_latSDM: 0.00001600
+Resid(2) pes: 0.00066618
+check sum of charges: 0.00000000
+# L_sum(SDM): 0.07212025
